@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { 
   Zap, 
   CheckCircle, 
@@ -89,6 +90,94 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
   const trainingResult = engineState?.lastTrainingResult ?? null;
   const [trainTopic, setTrainTopic] = useState("");
   const [trainingError, setTrainingError] = useState<string | null>(null);
+
+  // .env Import States
+  const [showEnvModal, setShowEnvModal] = useState(false);
+  const [envText, setEnvText] = useState("");
+  const [importingEnv, setImportingEnv] = useState(false);
+  const [importSuccessMsg, setImportSuccessMsg] = useState("");
+  const [importErrorMsg, setImportErrorMsg] = useState("");
+
+  const parseEnvText = (text: string) => {
+    const lines = text.split("\n");
+    const parsedKeys: Record<string, string[]> = {};
+
+    for (let line of lines) {
+      line = line.trim();
+      if (!line || line.startsWith("#")) continue;
+
+      const eqIdx = line.indexOf("=");
+      if (eqIdx === -1) continue;
+
+      const keyName = line.substring(0, eqIdx).trim().toUpperCase();
+      let val = line.substring(eqIdx + 1).trim();
+
+      // Strip leading and trailing quotes if present
+      if (val.startsWith('"') && val.endsWith('"')) {
+        val = val.substring(1, val.length - 1);
+      } else if (val.startsWith("'") && val.endsWith("'")) {
+        val = val.substring(1, val.length - 1);
+      }
+
+      // Split on commas/semicolons and trim
+      const parts = val.split(/[;;,]/).map(p => p.trim()).filter(p => p.length > 0);
+      
+      let providerId = "";
+      if (keyName.includes("GEMINI")) providerId = "gemini";
+      else if (keyName.includes("GROQ")) providerId = "groq";
+      else if (keyName.includes("OPENROUTER")) providerId = "openrouter";
+      else if (keyName.includes("HUGGINGFACE") || keyName.includes("HF_")) providerId = "huggingface";
+      else if (keyName.includes("CEREBRAS")) providerId = "cerebras";
+      else if (keyName.includes("COHERE")) providerId = "cohere";
+      else if (keyName.includes("MISTRAL")) providerId = "mistral";
+
+      if (providerId && parts.length > 0) {
+        parsedKeys[providerId] = parts;
+      }
+    }
+    return parsedKeys;
+  };
+
+  const handleImportEnv = async () => {
+    setImportingEnv(true);
+    setImportSuccessMsg("");
+    setImportErrorMsg("");
+
+    const parsed = parseEnvText(envText);
+    const keysParsed = Object.keys(parsed);
+
+    if (keysParsed.length === 0) {
+      setImportErrorMsg("No valid API keys found. Please ensure you paste lines in the format: PROVIDER_API_KEY=\"key1, key2\"");
+      setImportingEnv(false);
+      return;
+    }
+
+    try {
+      let count = 0;
+      for (const [id, keys] of Object.entries(parsed)) {
+        const res = await fetch("/api/engine/providers/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, keys, enabled: true })
+        });
+        if (res.ok) {
+          count++;
+        }
+      }
+      
+      setImportSuccessMsg(`Successfully imported key pools for ${count} providers and enabled them!`);
+      setEnvText("");
+      await fetchProviders();
+      setTimeout(() => {
+        setShowEnvModal(false);
+        setImportSuccessMsg("");
+      }, 2500);
+    } catch (err: any) {
+      setImportErrorMsg(err.message || "An error occurred while linking your keys.");
+    } finally {
+      setImportingEnv(false);
+    }
+  };
 
   useEffect(() => {
     fetchProviders();
@@ -248,29 +337,39 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
         </div>
 
         {/* Dynamic Multi-threading and waterfall control selectors */}
-        <div className="flex bg-[#161b22] border border-slate-800 p-1 rounded-xl shrink-0 h-fit">
+        <div className="flex flex-wrap items-center gap-3 shrink-0 h-fit">
           <button
-            onClick={() => handleChangeMode("multithread")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              execMode === "multithread"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                : "text-slate-400 hover:text-slate-200 border border-transparent"
-            }`}
+            onClick={() => setShowEnvModal(true)}
+            className="px-4 py-2 bg-[#161b22] hover:bg-slate-800 border border-slate-800 text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-95"
           >
-            <Zap className="w-3.5 h-3.5" />
-            Dual-Concurrent Trace (Multi-threaded)
+            <Key className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            .env Import
           </button>
-          <button
-            onClick={() => handleChangeMode("waterfall")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              execMode === "waterfall"
-                ? "bg-sky-500/15 text-sky-400 border border-sky-500/20"
-                : "text-slate-400 hover:text-slate-200 border border-transparent"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            Waterfall Failover (Sequential)
-          </button>
+
+          <div className="flex bg-[#161b22] border border-slate-800 p-1 rounded-xl shrink-0 h-fit">
+            <button
+              onClick={() => handleChangeMode("multithread")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                execMode === "multithread"
+                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                  : "text-slate-400 hover:text-slate-200 border border-transparent"
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Dual-Concurrent Trace (Multi-threaded)
+            </button>
+            <button
+              onClick={() => handleChangeMode("waterfall")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                execMode === "waterfall"
+                  ? "bg-sky-500/15 text-sky-400 border border-sky-500/20"
+                  : "text-slate-400 hover:text-slate-200 border border-transparent"
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Waterfall Failover (Sequential)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -312,7 +411,7 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
               ) : (
                 <>
                   <Play className="w-3.5 h-3.5" />
-                  INITIATE CYCLE
+                  TRAIN MODEL
                 </>
               )}
             </button>
@@ -796,6 +895,84 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
           </div>
         </div>
       </div>
+
+      {/* `.env` Batch Keys Import Modal Overlay */}
+      {showEnvModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-[#0c1017] border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl relative"
+          >
+            <div className="border-b border-slate-850 p-4 flex items-center justify-between bg-slate-950/40">
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-sans font-bold text-slate-100 text-xs uppercase tracking-wider">Batch .env Configuration Import</h3>
+              </div>
+              <button
+                onClick={() => setShowEnvModal(false)}
+                className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-400 leading-relaxed font-sans">
+                Paste the contents of your `.env` configuration file below. Any keys for <span className="text-emerald-400 font-semibold">Gemini, Groq, OpenRouter, Hugging Face, Cerebras, Cohere, or Mistral</span> will be extracted, updated, and enabled in your dynamic rotation pools automatically.
+              </p>
+
+              <div className="space-y-1">
+                <textarea
+                  value={envText}
+                  onChange={(e) => setEnvText(e.target.value)}
+                  placeholder={`GEMINI_API_KEY="AIzaSy..."\nCEREBRAS_API_KEY="csk-..."\nMISTRAL_API_KEY="..."`}
+                  className="w-full h-48 bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-emerald-500/40 rounded-xl p-3.5 text-[11px] font-mono text-slate-300 outline-none resize-none shadow-inner"
+                />
+                <span className="text-[10px] text-slate-500 block font-mono">Quotes, whitespaces, and comments are stripped automatically. Multiple keys can be comma-separated.</span>
+              </div>
+
+              {importErrorMsg && (
+                <div className="p-3 bg-red-500/10 border border-red-500/25 rounded-xl text-red-400 text-xs font-sans">
+                  {importErrorMsg}
+                </div>
+              )}
+
+              {importSuccessMsg && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-400 text-xs font-sans animate-pulse">
+                  {importSuccessMsg}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-[#12161f]/40 border-t border-slate-850 p-4 flex justify-end gap-2.5">
+              <button
+                onClick={() => setShowEnvModal(false)}
+                className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={importingEnv || !envText.trim()}
+                onClick={handleImportEnv}
+                className="px-4 py-2 bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-40 font-bold uppercase text-[11px] font-mono tracking-wide rounded-xl flex items-center gap-1.5 cursor-pointer transition-all active:scale-97"
+              >
+                {importingEnv ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                    Parsing...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    Parse & Save pools
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

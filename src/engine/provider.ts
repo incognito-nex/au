@@ -31,7 +31,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "gemini",
     name: "Google Gemini",
     enabled: true,
-    models: ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+    models: ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-1.5-pro"],
     selectedModel: "gemini-2.5-flash",
     keys: parseEnvKeys(process.env.GEMINI_API_KEY),
     keyIndex: 0
@@ -49,8 +49,16 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     enabled: false,
-    models: ["meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen-2.5-72b-instruct:free", "deepseek/deepseek-chat", "google/gemini-2.5-flash", "mistralai/mistral-7b-instruct:free"],
-    selectedModel: "meta-llama/llama-3.3-70b-instruct:free",
+    models: [
+      "google/gemini-2.5-flash:free",
+      "google/gemma-2-9b-it:free",
+      "meta-llama/llama-3-8b-instruct:free",
+      "qwen/qwen-2.5-7b-instruct:free",
+      "microsoft/phi-3-medium-128k-instruct:free",
+      "mistralai/mistral-7b-instruct:free",
+      "meta-llama/llama-3.3-70b-instruct:free"
+    ],
+    selectedModel: "google/gemini-2.5-flash:free",
     keys: parseEnvKeys(process.env.OPENROUTER_API_KEY),
     keyIndex: 0,
     apiUrl: "https://openrouter.ai/api/v1/chat/completions"
@@ -68,8 +76,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "cerebras",
     name: "Cerebras Systems",
     enabled: false,
-    models: ["llama3.1-8b", "llama3.3-70b", "llama3.1-70b"],
-    selectedModel: "llama3.1-8b",
+    models: ["llama-3.1-8b", "llama3.1-8b", "llama3.3-70b", "llama3.1-70b", "llama-3.3-70b"],
+    selectedModel: "llama-3.1-8b",
     keys: parseEnvKeys(process.env.CEREBRAS_API_KEY),
     keyIndex: 0,
     apiUrl: "https://api.cerebras.ai/v1/chat/completions"
@@ -434,18 +442,18 @@ export async function queryTeacher(
 
     const promiseResolvers = activeProviders.map(async (prov) => {
       let retryCount = 0;
-      const maxRetries = Math.max(1, prov.keys.length);
+      const maxRetries = Math.max(1, prov.keys.length) * prov.models.length;
 
       while (retryCount < maxRetries) {
         const key = getActiveKey(prov.id);
-        if (!key) {
+        if (!key && prov.id !== "ollama") {
           throw new Error(`No key configured for ${prov.id}`);
         }
 
         try {
           const result = await callIndividualProviderDirect(
             prov.id,
-            key,
+            key || "dummy",
             prov.selectedModel,
             prompt,
             systemInstruction,
@@ -459,7 +467,15 @@ export async function queryTeacher(
           }
           throw new Error(`Empty response from ${prov.id}`);
         } catch (err: any) {
-          console.warn(`[Stellight] Provider "${prov.id}" failed concurrent phase (Key Index ${prov.keyIndex}). Error: ${err.message}`);
+          console.warn(`[Stellight] Provider "${prov.id}" failed concurrent phase (Model: "${prov.selectedModel}", Key Index ${prov.keyIndex}). Error: ${err.message}`);
+          
+          // Switch to another model till none work or when one reached quota
+          if (prov.models.length > 1) {
+            const nextIdx = (prov.models.indexOf(prov.selectedModel) + 1) % prov.models.length;
+            prov.selectedModel = prov.models[nextIdx];
+            console.log(`[Stellight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to error/quota.`);
+          }
+          
           rotateKey(prov.id);
           retryCount++;
         }
@@ -480,21 +496,21 @@ export async function queryTeacher(
   console.log("[Stellight] Running Waterfall mode provider queue...");
   for (const prov of activeProviders) {
     let retryAttempt = 0;
-    const maxRetries = prov.keys.length;
+    const maxRetries = Math.max(1, prov.keys.length) * prov.models.length;
 
     while (retryAttempt < maxRetries) {
       const key = getActiveKey(prov.id);
-      if (!key) {
+      if (!key && prov.id !== "ollama") {
         rotateKey(prov.id);
         retryAttempt++;
         continue;
       }
 
       try {
-        console.log(`[Stellight] Attempting sequential query using ${prov.name} (index: ${prov.keyIndex})`);
+        console.log(`[Stellight] Attempting sequential query using ${prov.name} (Model: "${prov.selectedModel}", index: ${prov.keyIndex})`);
         const result = await callIndividualProviderDirect(
           prov.id,
-          key,
+          key || "dummy",
           prov.selectedModel,
           prompt,
           systemInstruction,
@@ -506,7 +522,15 @@ export async function queryTeacher(
         }
         throw new Error("Empty response");
       } catch (err: any) {
-        console.warn(`[Stellight] Waterfall breakdown for ${prov.name}: ${err.message}. Rotating key...`);
+        console.warn(`[Stellight] Waterfall breakdown for ${prov.name} (Model: "${prov.selectedModel}"): ${err.message}. Rotating key and model...`);
+        
+        // Switch to another model till none work or when one reached quota
+        if (prov.models.length > 1) {
+          const nextIdx = (prov.models.indexOf(prov.selectedModel) + 1) % prov.models.length;
+          prov.selectedModel = prov.models[nextIdx];
+          console.log(`[Stellight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to breakdown.`);
+        }
+        
         rotateKey(prov.id);
         retryAttempt++;
       }
