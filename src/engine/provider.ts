@@ -34,8 +34,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "groq",
     name: "Groq Cloud",
     enabled: false,
-    models: ["llama3-8b-8192", "mixtral-8x7b-32768", "llama-3.3-70b-versatile"],
-    selectedModel: "llama3-8b-8192",
+    models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+    selectedModel: "llama-3.3-70b-versatile",
     keys: process.env.GROQ_API_KEY ? [process.env.GROQ_API_KEY] : [],
     keyIndex: 0
   },
@@ -43,8 +43,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "openrouter",
     name: "OpenRouter",
     enabled: false,
-    models: ["meta-llama/llama-3.3-70b-instruct:free", "mistralai/mistral-7b-instruct:free", "google/gemini-2.5-flash:free"],
-    selectedModel: "meta-llama/llama-3.3-70b-instruct:free",
+    models: ["google/gemini-2.5-flash:free", "google/gemini-2.5-pro:free", "meta-llama/llama-3.3-70b-instruct:free", "mistralai/mistral-7b-instruct:free"],
+    selectedModel: "google/gemini-2.5-flash:free",
     keys: process.env.OPENROUTER_API_KEY ? [process.env.OPENROUTER_API_KEY] : [],
     keyIndex: 0,
     apiUrl: "https://openrouter.ai/api/v1/chat/completions"
@@ -53,8 +53,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "huggingface",
     name: "Hugging Face Inference",
     enabled: false,
-    models: ["meta-llama/Llama-3.2-3B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
-    selectedModel: "meta-llama/Llama-3.2-3B-Instruct",
+    models: ["Qwen/Qwen2.5-72B-Instruct", "meta-llama/Llama-3.2-3B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
+    selectedModel: "Qwen/Qwen2.5-72B-Instruct",
     keys: process.env.HUGGINGFACE_API_KEY ? [process.env.HUGGINGFACE_API_KEY] : [],
     keyIndex: 0
   },
@@ -62,8 +62,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "cerebras",
     name: "Cerebras Systems",
     enabled: false,
-    models: ["llama3.1-8b", "llama3.1-70b"],
-    selectedModel: "llama3.1-8b",
+    models: ["llama-3.1-8b", "llama-3.3-70b", "llama-3.1-70b"],
+    selectedModel: "llama-3.1-8b",
     keys: process.env.CEREBRAS_API_KEY ? [process.env.CEREBRAS_API_KEY] : [],
     keyIndex: 0,
     apiUrl: "https://api.cerebras.ai/v1/chat/completions"
@@ -72,8 +72,8 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     id: "cohere",
     name: "Cohere API",
     enabled: false,
-    models: ["command-r", "command-light", "command-r-plus"],
-    selectedModel: "command-r",
+    models: ["command-r-plus-08-2024", "command-r-plus", "command-r-08-2024"],
+    selectedModel: "command-r-plus-08-2024",
     keys: process.env.COHERE_API_KEY ? [process.env.COHERE_API_KEY] : [],
     keyIndex: 0
   },
@@ -160,7 +160,7 @@ export async function testProviderConnectivity(pId: string, customKeys?: string[
 /**
  * Robust lightweight router calling different models via standard HTTPS fetch
  */
-async function callIndividualProviderDirect(
+export async function callIndividualProviderDirect(
   pId: string,
   key: string,
   model: string,

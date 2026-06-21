@@ -44,9 +44,38 @@ export function APIConsole() {
   const [keysInput, setKeysInput] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Auto-train states
+  const [trainTopic, setTrainTopic] = useState("");
+  const [isTraining, setIsTraining] = useState(false);
+  const [trainingResult, setTrainingResult] = useState<any>(null);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchProviders();
   }, []);
+
+  const handleAutoTrain = async () => {
+    setIsTraining(true);
+    setTrainingResult(null);
+    setTrainingError(null);
+    try {
+      const res = await fetch("/api/engine/autotrain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: trainTopic })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTrainingResult(data);
+      } else {
+        setTrainingError(data.error || "Collaborative co-training returned an unusual error.");
+      }
+    } catch (err) {
+      setTrainingError("Failed to establish server communication with training pipeline.");
+    } finally {
+      setIsTraining(false);
+    }
+  };
 
   const fetchProviders = async () => {
     setLoading(true);
@@ -203,6 +232,158 @@ export function APIConsole() {
             Waterfall Failover (Sequential)
           </button>
         </div>
+      </div>
+
+      {/* Synaptic Co-Training Hub */}
+      <div className="bg-[#0c1017]/90 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+        {/* Abstract background blur effect */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-sky-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pb-5 border-b border-slate-800/60">
+          <div className="space-y-1">
+            <h3 className="font-sans font-bold text-slate-100 flex items-center gap-2 text-sm uppercase tracking-wider">
+              <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+              Dynamic Synaptic Co-Training Studio (Multi-Threaded)
+            </h3>
+            <p className="text-xs text-slate-400">
+              Launch live co-training cycles. All enabled models collaborate concurrently in parallel to research, verify, and cross-map concepts.
+            </p>
+          </div>
+          <div className="flex gap-2 w-full md:w-auto">
+            <input
+              type="text"
+              value={trainTopic}
+              onChange={(e) => setTrainTopic(e.target.value)}
+              placeholder="e.g. quantum cryptography, deep learning"
+              className="flex-1 md:w-80 bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-emerald-500/40 rounded-xl px-4 py-2 text-slate-200 text-xs font-sans outline-none shadow-inner"
+              disabled={isTraining}
+            />
+            <button
+              onClick={handleAutoTrain}
+              disabled={isTraining}
+              className="px-5 py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs font-bold uppercase tracking-wide rounded-xl transition-all shadow-lg active:scale-98 flex items-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              {isTraining ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  CO-TRAINING...
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5" />
+                  INITIATE CYCLE
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Training Results Presentation */}
+        {isTraining && (
+          <div className="mt-6 p-4 bg-[#141b26]/50 border border-slate-800/40 rounded-2xl flex flex-col items-center justify-center text-center py-12 gap-4">
+            <div className="relative">
+              <div className="w-16 h-16 rounded-full border-2 border-emerald-500/10 border-t-emerald-400 animate-spin flex items-center justify-center" />
+              <Layers className="w-6 h-6 text-emerald-400 animate-pulse absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <div className="space-y-1 max-w-md">
+              <span className="text-xs font-semibold text-emerald-400 animate-pulse font-mono block uppercase">
+                Active Multi-Threaded Raced Core Operational
+              </span>
+              <p className="text-[11px] text-slate-400">
+                Pinging {providers.filter(p => p.enabled && p.keys.length > 0).map(p => p.name).join(", ") || "enabled nodes"} in parallel. Fusing concepts, correcting conceptual anomalies, and upgrading synaptic matrix...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {trainingError && (
+          <div className="mt-5 p-4 bg-red-950/20 border border-red-900/30 text-red-400 rounded-2xl text-xs font-mono flex items-center gap-2.5">
+            <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
+            <div>
+              <p className="font-bold uppercase text-[10px]">Co-Training Disruption</p>
+              <p className="mt-0.5 text-slate-400 leading-relaxed">{trainingError}</p>
+            </div>
+          </div>
+        )}
+
+        {trainingResult && (
+          <div className="mt-6 space-y-5 animate-fadeIn">
+            {/* Success summary counts */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-[#111622]/80 border border-slate-800/60 rounded-xl p-3.5 font-sans">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold font-mono">Research Domain</span>
+                <span className="font-sans font-bold text-slate-200 text-sm">{trainingResult.topic}</span>
+              </div>
+              <div className="bg-[#111622]/80 border border-slate-800/60 rounded-xl p-3.5 font-sans">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold font-mono">Raced Active Channels</span>
+                <span className="font-sans font-bold text-slate-200 text-sm">{trainingResult.activeChannelsCount} Nodes Synced</span>
+              </div>
+              <div className="bg-[#111622]/80 border border-slate-800/60 rounded-xl p-3.5 font-sans">
+                <span className="text-[10px] text-slate-500 uppercase block font-bold font-mono">Consensus Facts Extracted</span>
+                <span className="font-sans font-bold text-emerald-400 text-sm">+{trainingResult.factsLearned?.length || 0} Learned</span>
+              </div>
+            </div>
+
+            {/* Detailed trace tabs */}
+            <div className="space-y-3.5">
+              <h4 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                Multi-Threaded Raced Nodes Trace logs:
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Channels Latency & Response Codes Log */}
+                <div className="bg-[#090d14] border border-slate-900 rounded-xl p-4 font-mono text-[11px] text-slate-300 space-y-2.5 max-h-[220px] overflow-y-auto">
+                  <span className="text-slate-500 text-[10px] uppercase block font-bold border-b border-slate-900/60 pb-1.5 flex items-center justify-between">
+                    <span>CO-TRAINING TELEMETRY</span>
+                    <span className="text-emerald-400">ONLINE</span>
+                  </span>
+                  {trainingResult.results?.map((r: any) => (
+                    <div key={r.providerId} className="flex justify-between items-center py-1 border-b border-slate-950/60">
+                      <span className="font-bold text-slate-400 flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${r.success ? "bg-emerald-400" : "bg-red-400"}`} />
+                        {r.providerName}
+                      </span>
+                      <div className="text-right text-[10px]">
+                        {r.success ? (
+                          <span className="text-emerald-400 font-bold">SUCCESS ({r.latency}ms)</span>
+                        ) : (
+                          <span className="text-red-400 font-bold">FAIL ({r.error})</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Extracted and synthesized fact cards */}
+                <div className="bg-[#090d14] border border-slate-900 rounded-xl p-4 font-mono text-[11px] text-slate-300 space-y-2.5 max-h-[220px] overflow-y-auto">
+                  <span className="text-slate-500 text-[10px] uppercase block font-bold border-b border-slate-900/60 pb-1.5 flex items-center justify-between">
+                    <span>CELLULAR COGNITIVE REINFORCEMENTS</span>
+                    <span className="text-indigo-400">COMPLETED</span>
+                  </span>
+                  {trainingResult.factsLearned && trainingResult.factsLearned.length > 0 ? (
+                    trainingResult.factsLearned.map((f: any, idx: number) => (
+                      <div key={idx} className="space-y-1 py-1.5 border-b border-slate-950/60">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-mono px-1 py-0.2 rounded font-bold uppercase">
+                            {f.provider}
+                          </span>
+                          <span className="text-slate-200 font-bold">
+                            {f.fact}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-snug">
+                          {f.source} (Confidence: {f.confidence})
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-slate-500 italic text-center py-4">No new facts parsed during this cycle.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">

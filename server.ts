@@ -20,7 +20,7 @@ import { CognitiveOrchestrator } from "./src/engine/reasoning.ts";
 import { SystemMetrics, Fact } from "./src/engine/types.ts";
 import { projectVectorTo2D } from "./src/engine/sentelum.ts";
 import { normalizeUserInput } from "./src/engine/normalization.ts";
-import { PROVIDERS_REGISTRY, PROMPT_EXECUTION_MODE, setPromptExecutionMode, testProviderConnectivity } from "./src/engine/provider.ts";
+import { PROVIDERS_REGISTRY, PROMPT_EXECUTION_MODE, setPromptExecutionMode, testProviderConnectivity, getActiveKey, callIndividualProviderDirect } from "./src/engine/provider.ts";
 
 async function startServer() {
   const app = express();
@@ -232,6 +232,184 @@ async function startServer() {
       console.error("Pipeline breakdown:", err);
       res.status(500).json({ error: err.message || "Failed to process message in pipeline." });
     }
+  });
+
+  // API: Concurrent Multi-Threaded Auto-Training of the Graph by all enabled AIs
+  app.post("/api/engine/autotrain", async (req, res) => {
+    let { topic } = req.body;
+    
+    // Choose dynamic topic if not specified
+    if (!topic || typeof topic !== "string" || !topic.trim()) {
+      const existingNodes = Array.from(graph.nodes.values());
+      if (existingNodes.length > 0) {
+        const randomNode = existingNodes[Math.floor(Math.random() * existingNodes.length)];
+        topic = randomNode.label;
+      } else {
+        const topics = ["deep learning neural networks", "quantum entanglements", "space exploration", "autonomous AI agents", "cellular automation", "metrology standards"];
+        topic = topics[Math.floor(Math.random() * topics.length)];
+      }
+    }
+
+    const cleanTopic = topic.trim();
+    const activeProviders = PROVIDERS_REGISTRY.filter(p => p.enabled && p.keys.length > 0);
+
+    if (activeProviders.length === 0) {
+      return res.json({
+        success: false,
+        error: "All API keys are offline or no provider is currently enabled in settings. Please enable providers and supply API keys in 'LLM Core' tab.",
+        factsLearned: []
+      });
+    }
+
+    const trainPrompt = `Research and generate exactly 2 highly accurate, distinct conceptual facts about the topic: "${cleanTopic}".
+Focus on objective, robust scientific, technical, biographical, or historical facts. Do NOT output vague opinions, greetings, suggestions, or chat prose.
+
+For each fact, you MUST specify:
+1. "subject": lowercase, short conceptual concept node (e.g., "transformer", "neural-network").
+2. "predicate": precisely one of physical/logical relations: "is_a", "related_to", "causes", "requires", "similar_to", "opposite_of", "created_by", "instance_of", "part_of".
+3. "object": lowercase, short target concept node (e.g., "attention-mechanism", "machine-learning").
+4. "rawSource": precise, complete, single declarative sentence stating this exact relationship in full (e.g., "The transformer model utilizes an attention-mechanism to weigh token relationships.").
+5. "confidence": floating numeric certainty rating between 0.90 and 1.00.
+6. "context": short lowercase category descriptor (e.g., "artificial-intelligence", "physics", "computing").
+
+You MUST return a strict JSON block exactly matching this schema, with no preamble, markdown wrapping, or extra text:
+{
+  "facts": [
+    {
+      "subject": "concept-a",
+      "predicate": "relation",
+      "object": "concept-b",
+      "rawSource": "S...",
+      "confidence": 0.95,
+      "context": "domain"
+    }
+  ]
+}`;
+
+    const systemInstruction = "You are a specialized Multithreaded Brain Auto-Teacher. Respond ONLY in structured raw JSON facts arrays.";
+
+    console.log(`[Stellight] Firing concurrent Multi-Threaded Auto-Train. Topic: "${cleanTopic}" across ${activeProviders.length} active channels.`);
+    
+    const results: any[] = [];
+    const factsLearned: any[] = [];
+
+    // Query all enabled providers IN PARALLEL (Multi-threaded execution)
+    const promises = activeProviders.map(async (prov) => {
+      const key = getActiveKey(prov.id);
+      if (!key) {
+        throw new Error("No active key");
+      }
+
+      const startTime = Date.now();
+      try {
+        const rawRes = await callIndividualProviderDirect(
+          prov.id,
+          key,
+          prov.selectedModel,
+          trainPrompt,
+          systemInstruction,
+          10000 // 10s maximum concurrent timeout
+        );
+
+        const latency = Date.now() - startTime;
+        
+        // Dynamic response cleaning (strip markdown codeblocks if returned)
+        let cleanedJson = rawRes.trim();
+        if (cleanedJson.startsWith("```json")) {
+          cleanedJson = cleanedJson.replace(/^```json/, "").replace(/```$/, "").trim();
+        } else if (cleanedJson.startsWith("```")) {
+          cleanedJson = cleanedJson.replace(/^```/, "").replace(/```$/, "").trim();
+        }
+
+        const parsed = JSON.parse(cleanedJson);
+        const incomingFacts = parsed.facts || [];
+
+        return {
+          id: prov.id,
+          name: prov.name,
+          success: true,
+          latency,
+          facts: incomingFacts
+        };
+      } catch (err: any) {
+        return {
+          id: prov.id,
+          name: prov.name,
+          success: false,
+          latency: Date.now() - startTime,
+          error: err.message || "Request timed out"
+        };
+      }
+    });
+
+    const settled = await Promise.allSettled(promises);
+
+    // Collect facts and integrate them
+    for (const item of settled) {
+      if (item.status === "fulfilled") {
+        const val = item.value;
+        results.push({
+          providerId: val.id,
+          providerName: val.name,
+          success: val.success,
+          latency: val.latency,
+          error: val.error,
+          extractedCount: val.facts ? val.facts.length : 0
+        });
+
+        if (val.success && Array.isArray(val.facts)) {
+          for (const rawFact of val.facts) {
+            if (!rawFact.subject || !rawFact.predicate || !rawFact.object) continue;
+
+            const fact: Fact = {
+              id: "fa_" + Math.random().toString(36).substring(2, 11),
+              subject: rawFact.subject.toLowerCase().trim(),
+              predicate: rawFact.predicate.toLowerCase().trim(),
+              object: rawFact.object.toLowerCase().trim(),
+              rawSource: rawFact.rawSource || `Extracted by ${val.name}`,
+              confidence: parseFloat(rawFact.confidence) || 0.92,
+              sourceCount: 1,
+              lastVerified: Date.now(),
+              context: rawFact.context || "synchronized-learning"
+            };
+
+            try {
+              // Integrate fact into Graph
+              // @ts-ignore
+              const integrated = await learning.integrateFact(fact, graph);
+              if (integrated) {
+                factsLearned.push({
+                  provider: val.name,
+                  fact: `${fact.subject} ${fact.predicate} ${fact.object}`,
+                  context: fact.context,
+                  confidence: fact.confidence,
+                  source: fact.rawSource
+                });
+              }
+            } catch (integrateErr) {
+              console.error("Integration fail:", integrateErr);
+            }
+          }
+        }
+      }
+    }
+
+    // Persist fully trained state changes
+    persistChanges();
+
+    // Adjust training metrics
+    metrics.learnedFacts = learning.facts.length;
+    metrics.averageConfidence = learning.facts.length > 0
+      ? learning.facts.reduce((sum, f) => sum + f.confidence, 0) / learning.facts.length
+      : 0.95;
+
+    res.json({
+      success: true,
+      topic: cleanTopic,
+      activeChannelsCount: activeProviders.length,
+      results,
+      factsLearned
+    });
   });
 
   // API: Teach Facts directly to Knowledge Base

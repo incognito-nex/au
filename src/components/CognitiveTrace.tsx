@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ReasoningTrace, VECTOR_DIMENSIONS } from "../engine/types.ts";
 import { Check, ChevronDown, ChevronRight, Cpu, Eye, Hourglass, HelpCircle, AlertCircle, Quote } from "lucide-react";
 
@@ -13,10 +13,37 @@ interface CognitiveTraceProps {
 
 export function CognitiveTrace({ trace }: CognitiveTraceProps) {
   const [expandedStepIdx, setExpandedStepIdx] = useState<number | null>(0);
+  const [displayedResponse, setDisplayedResponse] = useState("");
+
+  const responseText = trace?.response || "";
+
+  React.useEffect(() => {
+    if (!responseText) {
+      setDisplayedResponse("");
+      return;
+    }
+
+    const words = responseText.split(/(\s+)/); // keep whitespace matching
+    let currentIdx = 0;
+    setDisplayedResponse("");
+
+    const interval = setInterval(() => {
+      if (currentIdx < words.length) {
+        setDisplayedResponse((prev) => {
+          return prev + (words[currentIdx] || "");
+        });
+        currentIdx++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 15); // Naturally smooth fast typing pace
+
+    return () => clearInterval(interval);
+  }, [responseText]);
 
   if (!trace) {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-12 bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl shadow-2xl">
+      <div className="flex flex-col items-center justify-center text-center p-12 bg-[#0c1017]/85 border border-[#1e293b] rounded-2xl shadow-2xl">
         <Hourglass className="w-10 h-10 text-slate-500 animate-spin mb-4" />
         <h3 className="font-sans font-semibold text-slate-300 text-base">Awaiting Cognitive Input</h3>
         <p className="text-xs text-slate-500 max-w-sm mt-1.5">
@@ -276,8 +303,13 @@ export function CognitiveTrace({ trace }: CognitiveTraceProps) {
           </div>
 
           <div className="font-sans text-sm text-slate-300 leading-relaxed bg-[#090d14]/80 p-4 border border-slate-900 rounded-xl max-h-[300px] overflow-y-auto styled-scrollbar h-auto select-text">
-            {response ? (
-              <p className="whitespace-pre-wrap">{response}</p>
+            {displayedResponse ? (
+              <p className="whitespace-pre-wrap">
+                {displayedResponse}
+                {displayedResponse.length < (response || "").length && (
+                  <span className="inline-block w-1.5 h-4 ml-1.5 bg-emerald-400 animate-pulse align-middle" />
+                )}
+              </p>
             ) : (
               <span className="text-slate-500 italic font-mono text-xs">
                 Waiting for synthesis pipeline output...
