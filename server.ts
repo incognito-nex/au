@@ -1,0 +1,347 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import dotenv from "dotenv";
+
+// Load environment variables
+dotenv.config();
+
+// Imports for Stellight Cognitive Engine
+import { KnowledgeGraph } from "./src/engine/knowledge.ts";
+import { CognitiveMemory } from "./src/engine/memory.ts";
+import { LearningSystem } from "./src/engine/learning.ts";
+import { EngineStorage } from "./src/engine/storage.ts";
+import { CognitiveOrchestrator } from "./src/engine/reasoning.ts";
+import { SystemMetrics, Fact } from "./src/engine/types.ts";
+import { projectVectorTo2D } from "./src/engine/sentelum.ts";
+import { normalizeUserInput } from "./src/engine/normalization.ts";
+
+async function startServer() {
+  const app = express();
+  const PORT = 3000;
+
+  // Configure JSON body parsers
+  app.use(express.json());
+
+  // Instantiate Cognitive Engine Stack
+  let graph = new KnowledgeGraph();
+  let memory = new CognitiveMemory();
+  let learning = new LearningSystem();
+  let storage = new EngineStorage();
+  let orchestrator = new CognitiveOrchestrator();
+
+  let metrics: SystemMetrics = {
+    totalInteractions: 0,
+    learnedFacts: 4, // Starts with bootstrapped count
+    averageConfidence: 0.95,
+    correctionsCount: 0,
+    mistakesResolved: 0,
+    retrievalSuccessCount: 0
+  };
+
+  // Restore State from Storage file if present
+  const savedState = storage.loadState();
+  if (savedState) {
+    console.log("Restoring cognitive states from persistent store...");
+    try {
+      // Re-populate graph map
+      graph.nodes.clear();
+      for (const node of savedState.nodes) {
+        graph.nodes.set(node.id, node);
+      }
+      graph.edges = savedState.edges || [];
+      
+      // Re-populate learning facts
+      learning.facts = savedState.facts || [];
+      learning.conflicts = savedState.conflicts || [];
+      
+      // Re-populate memories
+      memory.shortTerm = savedState.shortTerm || [];
+      memory.episodic = savedState.episodic || [];
+      memory.semantic = savedState.semantic || [];
+      
+      // Re-populate metrics
+      metrics = savedState.metrics || metrics;
+      console.log(`State loaded successfully: ${graph.nodes.size} Nodes, ${learning.facts.length} Facts, ${memory.episodic.length} Experiences.`);
+    } catch (err) {
+      console.error("Failed to parse restored state parameters:", err);
+    }
+  } else {
+    // Inject bootstrapped facts to keep graph and learning engine in-sync initially
+    learning.facts = [
+      {
+        id: "fa_boot_1",
+        subject: "automobile",
+        predicate: "is_a",
+        object: "vehicle",
+        rawSource: "Automobile is a level of passenger transport vehicle",
+        confidence: 0.95,
+        sourceCount: 1,
+        lastVerified: Date.now(),
+        context: "transportation"
+      },
+      {
+        id: "fa_boot_2",
+        subject: "python",
+        predicate: "is_a",
+        object: "programming language",
+        rawSource: "Python is a modern high-level script language",
+        confidence: 0.95,
+        sourceCount: 1,
+        lastVerified: Date.now(),
+        context: "programming"
+      },
+      {
+        id: "fa_boot_3",
+        subject: "programming language",
+        predicate: "requires",
+        object: "logic",
+        rawSource: "All general programming languages require boolean logic structures",
+        confidence: 0.9,
+        sourceCount: 1,
+        lastVerified: Date.now(),
+        context: "programming"
+      },
+      {
+        id: "fa_boot_4",
+        subject: "python",
+        predicate: "created_by",
+        object: "guido",
+        rawSource: "Python was created by Guido van Rossum in 1991",
+        confidence: 1.0,
+        sourceCount: 1,
+        lastVerified: Date.now(),
+        context: "programming"
+      }
+    ];
+  }
+
+  // Define Helper to write changes to local state
+  const persistChanges = () => {
+    storage.saveState({ graph, memory, learning, metrics });
+  };
+
+  // API: Health endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "online", 
+      time: new Date().toISOString(),
+      offlineMode: !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "MY_GEMINI_API_KEY"
+    });
+  });
+
+  // API: Get Cognitive representation data
+  app.get("/api/engine/state", (req, res) => {
+    // Return all structured memories, facts, and coordinate projections of Nodes for visual mapping
+    const projectedNodes = Array.from(graph.nodes.values()).map(node => {
+      const coord2D = projectVectorTo2D(node.vector);
+      return {
+        ...node,
+        x: coord2D.x,
+        y: coord2D.y
+      };
+    });
+
+    res.json({
+      nodes: projectedNodes,
+      edges: graph.edges,
+      facts: learning.facts,
+      shortTerm: memory.shortTerm,
+      episodic: memory.episodic,
+      semantic: memory.semantic,
+      conflicts: learning.conflicts,
+      metrics
+    });
+  });
+
+  // API: Execute Pipeline Chat route
+  app.post("/api/chat", async (req, res) => {
+    const { message } = req.body;
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Missing required parameter: message" });
+    }
+
+    try {
+      const trace = await orchestrator.executePipeline(
+        message,
+        graph,
+        memory,
+        learning,
+        metrics
+      );
+
+      // Save states
+      persistChanges();
+
+      res.json({ success: true, trace });
+    } catch (err: any) {
+      console.error("Pipeline breakdown:", err);
+      res.status(500).json({ error: err.message || "Failed to process message in pipeline." });
+    }
+  });
+
+  // API: Teach Facts directly to Knowledge Base
+  app.post("/api/engine/fact", async (req, res) => {
+    const { subject, predicate, object, context } = req.body;
+    if (!subject || !predicate || !object) {
+      return res.status(400).json({ error: "Missing parameters. Must provide subject, predicate, and object." });
+    }
+
+    try {
+      const cleanSubject = subject.toLowerCase().trim();
+      const cleanPredicate = predicate.toLowerCase().trim();
+      const cleanObject = object.toLowerCase().trim();
+      const cleanContext = (context || "taught").toLowerCase().trim();
+
+      const newFact: Fact = {
+        id: "fa_" + Math.random().toString(36).substring(2, 11),
+        subject: cleanSubject,
+        predicate: cleanPredicate,
+        object: cleanObject,
+        rawSource: `Manually taught fact: ${cleanSubject} ${cleanPredicate} ${cleanObject}`,
+        confidence: 1.0,
+        sourceCount: 1,
+        lastVerified: Date.now(),
+        context: cleanContext
+      };
+
+      // Vector compilation
+      const normSub = await normalizeUserInput(cleanSubject);
+      const normObj = await normalizeUserInput(cleanObject);
+
+      graph.addOrUpdateNode(cleanSubject, subject.trim(), normSub.estimatedVector, {
+        topic: cleanContext,
+        tags: [cleanContext],
+        confidence: 1.0
+      });
+
+      graph.addOrUpdateNode(cleanObject, object.trim(), normObj.estimatedVector, {
+        topic: cleanContext,
+        tags: [cleanContext],
+        confidence: 1.0
+      });
+
+      // Add edge
+      graph.addEdge(cleanSubject, cleanObject, cleanPredicate, 1.0, 1.0);
+
+      // Add to facts
+      const existing = learning.facts.find(
+        f => f.subject === cleanSubject && f.predicate === cleanPredicate && f.object === cleanObject
+      );
+
+      if (!existing) {
+        learning.facts.push(newFact);
+        metrics.learnedFacts += 1;
+      } else {
+        existing.confidence = 1.0;
+        existing.lastVerified = Date.now();
+      }
+
+      persistChanges();
+      res.json({ success: true, fact: newFact });
+    } catch (err: any) {
+      console.error("Direct learning insertion failing:", err);
+      res.status(500).json({ error: err.message || "Failed to catalog learned assertion." });
+    }
+  });
+
+  // API: Wipes memory databases completely
+  app.post("/api/engine/reset", (req, res) => {
+    try {
+      storage.clearState();
+      
+      // Re-instantiate
+      graph = new KnowledgeGraph();
+      memory = new CognitiveMemory();
+      learning = new LearningSystem();
+      
+      metrics = {
+        totalInteractions: 0,
+        learnedFacts: 4,
+        averageConfidence: 0.95,
+        correctionsCount: 0,
+        mistakesResolved: 0,
+        retrievalSuccessCount: 0
+      };
+
+      learning.facts = [
+        {
+          id: "fa_boot_1",
+          subject: "automobile",
+          predicate: "is_a",
+          object: "vehicle",
+          rawSource: "Automobile is a passenger transport vehicle",
+          confidence: 0.95,
+          sourceCount: 1,
+          lastVerified: Date.now(),
+          context: "transportation"
+        },
+        {
+          id: "fa_boot_2",
+          subject: "python",
+          predicate: "is_a",
+          object: "programming language",
+          rawSource: "Python is a modern high-level scripting language",
+          confidence: 0.95,
+          sourceCount: 1,
+          lastVerified: Date.now(),
+          context: "programming"
+        },
+        {
+          id: "fa_boot_3",
+          subject: "programming language",
+          predicate: "requires",
+          object: "logic",
+          rawSource: "All programming languages require logical statements",
+          confidence: 0.9,
+          sourceCount: 1,
+          lastVerified: Date.now(),
+          context: "programming"
+        },
+        {
+          id: "fa_boot_4",
+          subject: "python",
+          predicate: "created_by",
+          object: "guido",
+          rawSource: "Guido van Rossum invented python language in 1991",
+          confidence: 1.0,
+          sourceCount: 1,
+          lastVerified: Date.now(),
+          context: "programming"
+        }
+      ];
+
+      persistChanges();
+      res.json({ success: true, message: "Engine storage, facts, and graphs wiped successfully." });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Wipe failed." });
+    }
+  });
+
+  // Vite routing integration for client asset pipelines
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+    app.use(express.static(distPath));
+    // Standard catch-all for single-page routing
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`[Stellight] Express container listening on http://localhost:${PORT}`);
+  });
+}
+
+startServer();
