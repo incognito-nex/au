@@ -20,7 +20,7 @@ import { CognitiveOrchestrator } from "./src/engine/reasoning.ts";
 import { SystemMetrics, Fact } from "./src/engine/types.ts";
 import { projectVectorTo2D } from "./src/engine/sentelum.ts";
 import { normalizeUserInput } from "./src/engine/normalization.ts";
-import { PROVIDERS_REGISTRY, PROMPT_EXECUTION_MODE, setPromptExecutionMode, testProviderConnectivity, getActiveKey, callIndividualProviderDirect } from "./src/engine/provider.ts";
+import { PROVIDERS_REGISTRY, PROMPT_EXECUTION_MODE, setPromptExecutionMode, testProviderConnectivity, getActiveKey, callIndividualProviderDirect, rotateKey } from "./src/engine/provider.ts";
 
 async function startServer() {
   const app = express();
@@ -122,6 +122,11 @@ async function startServer() {
     ];
   }
 
+  // Background Training States
+  let activeTrainingTopic: string | null = null;
+  let isTrainingActive = false;
+  let lastTrainingResult: any = null;
+
   // Define Helper to write changes to local state
   const persistChanges = () => {
     storage.saveState({ graph, memory, learning, metrics });
@@ -204,7 +209,10 @@ async function startServer() {
       episodic: memory.episodic,
       semantic: memory.semantic,
       conflicts: learning.conflicts,
-      metrics
+      metrics,
+      isTrainingActive,
+      activeTrainingTopic,
+      lastTrainingResult
     });
   });
 
@@ -236,6 +244,10 @@ async function startServer() {
 
   // API: Concurrent Multi-Threaded Auto-Training of the Graph by all enabled AIs
   app.post("/api/engine/autotrain", async (req, res) => {
+    if (isTrainingActive) {
+      return res.status(400).json({ error: "A cognitive co-training session is already active in the background." });
+    }
+
     let { topic } = req.body;
     
     // Choose dynamic topic if not specified
@@ -253,82 +265,113 @@ async function startServer() {
     const cleanTopic = topic.trim().toLowerCase();
     const activeProviders = PROVIDERS_REGISTRY.filter(p => p.enabled && p.keys.length > 0);
 
-    const FREE_KNOWLEDGE_DATABASES = [
-      { subject: "transformer", predicate: "requires", object: "attention-mechanism", rawSource: "The transformer model utilizes an attention-mechanism to weigh token relationships.", confidence: 0.98, context: "artificial-intelligence" },
-      { subject: "transformer", predicate: "is_a", object: "neural-network", rawSource: "The Transformer is a deep neural-network architecture designed for seq2seq tasks.", confidence: 0.99, context: "artificial-intelligence" },
-      { subject: "attention-mechanism", predicate: "similar_to", object: "cognitive-focus", rawSource: "Mathematical attention mechanisms are styled similar to human cognitive focus concepts.", confidence: 0.91, context: "artificial-intelligence" },
-      { subject: "neural-network", predicate: "related_to", object: "machine-learning", rawSource: "Deep neural networks are standard architectures within subclass of machine-learning models.", confidence: 0.99, context: "artificial-intelligence" },
-      { subject: "deep-learning", predicate: "is_a", object: "machine-learning", rawSource: "Deep-learning refers to neural network layers operating within machine-learning frameworks.", confidence: 0.99, context: "artificial-intelligence" },
-      { subject: "backpropagation", predicate: "causes", object: "gradient-descent", rawSource: "Backpropagation processes calculate partial derivatives to drive gradient-descent weight shifts.", confidence: 0.97, context: "artificial-intelligence" },
-      { subject: "convolutional-network", predicate: "part_of", object: "computer-vision", rawSource: "Convolutional neural network topologies represent critical part of computer-vision approaches.", confidence: 0.96, context: "artificial-intelligence" },
-      { subject: "quantum-computing", predicate: "requires", object: "superposition", rawSource: "Quantum computing mechanisms require superposition to evaluate multiple state vectors simultaneously.", confidence: 0.98, context: "quantum-physics" },
-      { subject: "qubit", predicate: "instance_of", object: "quantum-state", rawSource: "A physical qubit serves as a fundamental instance of a controlled quantum state.", confidence: 0.95, context: "quantum-physics" },
-      { subject: "superposition", predicate: "related_to", object: "coherence", rawSource: "Maintaining superposition is physically related to quantum coherence tolerances.", confidence: 0.94, context: "quantum-physics" },
-      { subject: "entanglement", predicate: "causes", object: "non-locality", rawSource: "Spooky action at a distance or entanglement causes non-locality observations in particle physics.", confidence: 0.97, context: "quantum-physics" },
-      { subject: "quantum-computer", predicate: "similar_to", object: "analog-simulator", rawSource: "A quantum-computer solves specialized Hamiltonian constraints in a way similar to analog simulators.", confidence: 0.92, context: "quantum-physics" },
-      { subject: "starship", predicate: "created_by", object: "spacex", rawSource: "The heavy Starship vessel was created by aerospace company SpaceX.", confidence: 0.99, context: "aerospace" },
-      { subject: "rocket-engine", predicate: "requires", object: "liquid-oxygen", rawSource: "High-thrust rocket engines require cryogenic liquid-oxygen oxidizing Agents.", confidence: 0.98, context: "aerospace" },
-      { subject: "liquid-oxygen", predicate: "related_to", object: "propellant", rawSource: "Methalox systems rely on liquid oxygen combined as chemical rocket propellant.", confidence: 0.97, context: "aerospace" },
-      { subject: "mars-mission", predicate: "requires", object: "starship", rawSource: "Human exploration mars missions require massive re-usable lifters like Starship.", confidence: 0.94, context: "aerospace" },
-      { subject: "rsa-encryption", predicate: "requires", object: "prime-factorization", rawSource: "RSA decryption security relies on difficulty of prime-factorization equations.", confidence: 0.99, context: "cryptography" },
-      { subject: "cryptography", predicate: "part_of", object: "computer-science", rawSource: "Information theory and cryptography are considered central parts of computer-science.", confidence: 0.99, context: "cryptography" },
-      { subject: "blockchain", predicate: "requires", object: "cryptography", rawSource: "Decentralized ledgers and blockchains fundamentally require cryptographic hash structures.", confidence: 0.98, context: "cryptography" }
-    ];
+    // Set background flags
+    isTrainingActive = true;
+    activeTrainingTopic = cleanTopic;
+    lastTrainingResult = null;
 
-    const results: any[] = [];
-    const factsLearned: any[] = [];
+    // Immediately respond to client
+    res.json({
+      success: true,
+      message: "Stellight Sentelum Auto-Training initiated in background.",
+      topic: cleanTopic,
+      onlineChannels: activeProviders.map(p => p.name)
+    });
 
-    if (activeProviders.length === 0) {
-      console.log(`[Stellight] Zero keys online. Invoking Open-Source Free Offline Database Fallback matching: "${cleanTopic}"`);
-      
-      // Look up matching offline facts
-      let matchedFacts = FREE_KNOWLEDGE_DATABASES.filter(
-        f => f.subject.includes(cleanTopic) || f.object.includes(cleanTopic) || f.context.includes(cleanTopic)
-      );
+    // Execute heavy training pipeline in the background asynchronously
+    (async () => {
+      console.log(`[BACKGROUND TRAINER] Starting auto-train sweep for topic: "${cleanTopic}"`);
+      const results: any[] = [];
+      const factsLearned: any[] = [];
 
-      // Default to 2 random items if no direct keyword matches
-      if (matchedFacts.length === 0) {
-        matchedFacts = [
-          FREE_KNOWLEDGE_DATABASES[Math.floor(Math.random() * FREE_KNOWLEDGE_DATABASES.length)],
-          FREE_KNOWLEDGE_DATABASES[Math.floor(Math.random() * FREE_KNOWLEDGE_DATABASES.length)]
-        ];
-      }
+      const FREE_KNOWLEDGE_DATABASES = [
+        { subject: "transformer", predicate: "requires", object: "attention-mechanism", rawSource: "The transformer model utilizes an attention-mechanism to weigh token relationships.", confidence: 0.98, context: "artificial-intelligence" },
+        { subject: "transformer", predicate: "is_a", object: "neural-network", rawSource: "The Transformer is a deep neural-network architecture designed for seq2seq tasks.", confidence: 0.99, context: "artificial-intelligence" },
+        { subject: "attention-mechanism", predicate: "similar_to", object: "cognitive-focus", rawSource: "Mathematical attention mechanisms are styled similar to human cognitive focus concepts.", confidence: 0.91, context: "artificial-intelligence" },
+        { subject: "neural-network", predicate: "related_to", object: "machine-learning", rawSource: "Deep neural networks are standard architectures within subclass of machine-learning models.", confidence: 0.99, context: "artificial-intelligence" },
+        { subject: "deep-learning", predicate: "is_a", object: "machine-learning", rawSource: "Deep-learning refers to neural network layers operating within machine-learning frameworks.", confidence: 0.99, context: "artificial-intelligence" },
+        { subject: "backpropagation", predicate: "causes", object: "gradient-descent", rawSource: "Backpropagation processes calculate partial derivatives to drive gradient-descent weight shifts.", confidence: 0.97, context: "artificial-intelligence" },
+        { subject: "convolutional-network", predicate: "part_of", object: "computer-vision", rawSource: "Convolutional neural network topologies represent critical part of computer-vision approaches.", confidence: 0.96, context: "artificial-intelligence" },
+        { subject: "quantum-computing", predicate: "requires", object: "superposition", rawSource: "Quantum computing mechanisms require superposition to evaluate multiple state vectors simultaneously.", confidence: 0.98, context: "quantum-physics" },
+        { subject: "qubit", predicate: "instance_of", object: "quantum-state", rawSource: "A physical qubit serves as a fundamental instance of a controlled quantum state.", confidence: 0.95, context: "quantum-physics" },
+        { subject: "superposition", predicate: "related_to", object: "coherence", rawSource: "Maintaining superposition is physically related to quantum coherence tolerances.", confidence: 0.94, context: "quantum-physics" },
+        { subject: "entanglement", predicate: "causes", object: "non-locality", rawSource: "Spooky action at a distance or entanglement causes non-locality observations in particle physics.", confidence: 0.97, context: "quantum-physics" },
+        { subject: "quantum-computer", predicate: "similar_to", object: "analog-simulator", rawSource: "A quantum-computer solves specialized Hamiltonian constraints in a way similar to analog simulators.", confidence: 0.92, context: "quantum-physics" },
+        { subject: "starship", predicate: "created_by", object: "spacex", rawSource: "The heavy Starship vessel was created by aerospace company SpaceX.", confidence: 0.99, context: "aerospace" },
+        { subject: "rocket-engine", predicate: "requires", object: "liquid-oxygen", rawSource: "High-thrust rocket engines require cryogenic liquid-oxygen oxidizing Agents.", confidence: 0.98, context: "aerospace" },
+        { subject: "liquid-oxygen", predicate: "related_to", object: "propellant", rawSource: "Methalox systems rely on liquid oxygen combined as chemical rocket propellant.", confidence: 0.97, context: "aerospace" },
+        { subject: "mars-mission", predicate: "requires", object: "starship", rawSource: "Human exploration mars missions require massive re-usable lifters like Starship.", confidence: 0.94, context: "aerospace" },
+        { subject: "rsa-encryption", predicate: "requires", object: "prime-factorization", rawSource: "RSA decryption security relies on difficulty of prime-factorization equations.", confidence: 0.99, context: "cryptography" },
+        { subject: "cryptography", predicate: "part_of", object: "computer-science", rawSource: "Information theory and cryptography are considered central parts of computer-science.", confidence: 0.99, context: "cryptography" },
+        { subject: "blockchain", predicate: "requires", object: "cryptography", rawSource: "Decentralized ledgers and blockchains fundamentally require cryptographic hash structures.", confidence: 0.98, context: "cryptography" },
+        // Enhanced free offline database categories
+        { subject: "reinforcement-learning", predicate: "requires", object: "reward-function", rawSource: "Reinforcement learning requires a reward function to guide agent policy updates.", confidence: 0.98, context: "artificial-intelligence" },
+        { subject: "reward-function", predicate: "similar_to", object: "biological-dopamine", rawSource: "Mathematical reward functions act similar to biological dopamine paths in neurological brains.", confidence: 0.92, context: "neuroscience" },
+        { subject: "policy-gradient", predicate: "is_a", object: "reinforcement-learning", rawSource: "Policy gradient is a mathematical subset of reinforcement learning policies.", confidence: 0.97, context: "artificial-intelligence" },
+        { subject: "synapse", predicate: "requires", object: "neurotransmitter", rawSource: "Chemical synapses require neurotransmitter releases to cross the synaptic cleft.", confidence: 0.99, context: "neuroscience" },
+        { subject: "dendrite", predicate: "part_of", object: "neuron", rawSource: "Dendrites are branching cellular components that form a critical sensory part of a biological neuron.", confidence: 0.99, context: "neuroscience" },
+        { subject: "biological-dopamine", predicate: "causes", object: "synaptic-plasticity", rawSource: "Dopamine surges cause long-term synaptic plasticity and motivation reinforcement.", confidence: 0.96, context: "neuroscience" },
+        { subject: "agentic-workflow", predicate: "requires", object: "tool-use", rawSource: "Autonomous agentic workflows require structured tool-use to interact with the environment.", confidence: 0.97, context: "cognitive-science" },
+        { subject: "agentic-workflow", predicate: "similar_to", object: "human-planning", rawSource: "Multi-agent chains and reflection loops operate in ways similar to human peer-review planning.", confidence: 0.89, context: "cognitive-science" },
+        { subject: "thermodynamics", predicate: "requires", object: "entropy", rawSource: "The second law of thermodynamics requires that total entropy of an isolated system always increases.", confidence: 1.00, context: "physics" },
+        { subject: "entropy", predicate: "related_to", object: "information-theory", rawSource: "Thermodynamic entropy is mathematically isomorphic to Shannon entropy in information theory.", confidence: 0.99, context: "physics" },
+        { subject: "superconductor", predicate: "requires", object: "cooper-pairs", rawSource: "Low-temperature BCS superconductivity requires the pairing of electrons into Cooper pairs.", confidence: 0.98, context: "physics" },
+        { subject: "cooper-pairs", predicate: "causes", object: "zero-resistance", rawSource: "The coherent flow of Cooper pairs causes zero electrical resistance below critical temperature.", confidence: 0.98, context: "physics" }
+      ];
 
-      results.push({
-        providerId: "free_db_offline",
-        providerName: "Free Public Knowledge Archive (No-Key Fallback)",
-        success: true,
-        latency: 125,
-        extractedCount: matchedFacts.length
-      });
+      try {
+        if (activeProviders.length === 0) {
+          console.log(`[Stellight Background] No keys online. Performing offline knowledge fallback for topic: "${cleanTopic}"`);
+          
+          // Pattern matching on the rich local knowledge database
+          let matchedFacts = FREE_KNOWLEDGE_DATABASES.filter(
+            f => f.subject.includes(cleanTopic) || f.object.includes(cleanTopic) || f.context.includes(cleanTopic)
+          );
 
-      for (const matched of matchedFacts) {
-        const fact: Fact = {
-          id: "fa_free_" + Math.random().toString(36).substring(2, 11),
-          subject: matched.subject,
-          predicate: matched.predicate,
-          object: matched.object,
-          rawSource: matched.rawSource,
-          confidence: matched.confidence,
-          sourceCount: 1,
-          lastVerified: Date.now(),
-          context: matched.context
-        };
+          if (matchedFacts.length === 0) {
+            // Default select 3 related or random ones to expand knowledge aggressively
+            const countToGet = 3;
+            for (let i = 0; i < countToGet; i++) {
+              matchedFacts.push(FREE_KNOWLEDGE_DATABASES[Math.floor(Math.random() * FREE_KNOWLEDGE_DATABASES.length)]);
+            }
+          }
 
-        // @ts-ignore
-        const integrated = await learning.integrateFact(fact, graph);
-        if (integrated) {
-          factsLearned.push({
-            provider: "Free Knowledge Archive",
-            fact: `${fact.subject} ${fact.predicate} ${fact.object}`,
-            context: fact.context,
-            confidence: fact.confidence,
-            source: fact.rawSource
+          results.push({
+            providerId: "free_db_offline",
+            providerName: "Free Public Knowledge Archive (No-Key Fallback)",
+            success: true,
+            latency: 150,
+            extractedCount: matchedFacts.length
           });
-        }
-      }
-    } else {
-      const trainPrompt = `Research and generate exactly 2 highly accurate, distinct conceptual facts about the topic: "${cleanTopic}".
+
+          for (const matched of matchedFacts) {
+            const fact: Fact = {
+              id: "fa_free_" + Math.random().toString(36).substring(2, 11),
+              subject: matched.subject,
+              predicate: matched.predicate,
+              object: matched.object,
+              rawSource: matched.rawSource,
+              confidence: matched.confidence,
+              sourceCount: 1,
+              lastVerified: Date.now(),
+              context: matched.context
+            };
+
+            // @ts-ignore
+            const integrated = await learning.integrateFact(fact, graph);
+            if (integrated) {
+              factsLearned.push({
+                provider: "Free Knowledge Archive",
+                fact: `${fact.subject} ${fact.predicate} ${fact.object}`,
+                context: fact.context,
+                confidence: fact.confidence,
+                source: fact.rawSource
+              });
+            }
+          }
+        } else {
+          // Trigger actual parallel LLM extraction queries!
+          const trainPrompt = `Research and generate exactly 2 highly accurate, distinct conceptual facts about the topic: "${cleanTopic}".
 Focus on objective, robust scientific, technical, biographical, or historical facts. Do NOT output vague opinions, greetings, suggestions, or chat prose.
 
 For each fact, you MUST specify:
@@ -353,132 +396,146 @@ You MUST return a strict JSON block exactly matching this schema, with no preamb
   ]
 }`;
 
-      const systemInstruction = "You are a specialized Multithreaded Brain Auto-Teacher. Respond ONLY in structured raw JSON facts arrays.";
+          const systemInstruction = "You are a specialized Multithreaded Brain Auto-Teacher. Respond ONLY in structured raw JSON facts arrays.";
+          const promises = activeProviders.map(async (prov) => {
+            const key = getActiveKey(prov.id);
+            if (!key) {
+              throw new Error("No active key configured");
+            }
 
-      console.log(`[Stellight] Firing concurrent Multi-Threaded Auto-Train. Topic: "${cleanTopic}" across ${activeProviders.length} active channels.`);
+            const startTime = Date.now();
+            try {
+              const rawRes = await callIndividualProviderDirect(
+                prov.id,
+                key,
+                prov.selectedModel,
+                trainPrompt,
+                systemInstruction,
+                9000 // 9 second timeout per concurrent thread
+              );
 
-      // Query all enabled providers IN PARALLEL (Multi-threaded execution)
-      const promises = activeProviders.map(async (prov) => {
-        const key = getActiveKey(prov.id);
-        if (!key) {
-          throw new Error("No active key");
-        }
+              const latency = Date.now() - startTime;
+              let cleanedJson = rawRes.trim();
 
-        const startTime = Date.now();
-        try {
-          const rawRes = await callIndividualProviderDirect(
-            prov.id,
-            key,
-            prov.selectedModel,
-            trainPrompt,
-            systemInstruction,
-            10000 // 10s maximum concurrent timeout
-          );
+              if (cleanedJson.startsWith("```json")) {
+                cleanedJson = cleanedJson.replace(/^```json/, "").replace(/```$/, "").trim();
+              } else if (cleanedJson.startsWith("```")) {
+                cleanedJson = cleanedJson.replace(/^```/, "").replace(/```$/, "").trim();
+              }
 
-          const latency = Date.now() - startTime;
-          
-          let cleanedJson = rawRes.trim();
-          if (cleanedJson.startsWith("```json")) {
-            cleanedJson = cleanedJson.replace(/^```json/, "").replace(/```$/, "").trim();
-          } else if (cleanedJson.startsWith("```")) {
-            cleanedJson = cleanedJson.replace(/^```/, "").replace(/```$/, "").trim();
-          }
+              const parsed = JSON.parse(cleanedJson);
+              const incomingFacts = parsed.facts || [];
 
-          const parsed = JSON.parse(cleanedJson);
-          const incomingFacts = parsed.facts || [];
-
-          return {
-            id: prov.id,
-            name: prov.name,
-            success: true,
-            latency,
-            facts: incomingFacts
-          };
-        } catch (err: any) {
-          return {
-            id: prov.id,
-            name: prov.name,
-            success: false,
-            latency: Date.now() - startTime,
-            error: err.message || "Request timed out"
-          };
-        }
-      });
-
-      const settled = await Promise.allSettled(promises);
-
-      // Collect facts and integrate them
-      for (const item of settled) {
-        if (item.status === "fulfilled") {
-          const val = item.value;
-          results.push({
-            providerId: val.id,
-            providerName: val.name,
-            success: val.success,
-            latency: val.latency,
-            error: val.error,
-            extractedCount: val.facts ? val.facts.length : 0
+              return {
+                id: prov.id,
+                name: prov.name,
+                success: true,
+                latency,
+                facts: incomingFacts
+              };
+            } catch (err: any) {
+              console.warn(`[BACKGROUND TRAINER] Provider "${prov.id}" failed in background. Retrying or cycling to handle. Error: ${err.message}`);
+              // Cycle model or key for robust recovery
+              try {
+                prov.selectedModel = prov.models[(prov.models.indexOf(prov.selectedModel) + 1) % prov.models.length];
+                rotateKey(prov.id);
+              } catch (_) {}
+              
+              return {
+                id: prov.id,
+                name: prov.name,
+                success: false,
+                latency: Date.now() - startTime,
+                error: err.message || "Failed API call"
+              };
+            }
           });
 
-          if (val.success && Array.isArray(val.facts)) {
-            for (const rawFact of val.facts) {
-              if (!rawFact.subject || !rawFact.predicate || !rawFact.object) continue;
+          const settled = await Promise.allSettled(promises);
 
-              const fact: Fact = {
-                id: "fa_" + Math.random().toString(36).substring(2, 11),
-                subject: rawFact.subject.toLowerCase().trim(),
-                predicate: rawFact.predicate.toLowerCase().trim(),
-                object: rawFact.object.toLowerCase().trim(),
-                rawSource: rawFact.rawSource || `Extracted by ${val.name}`,
-                confidence: parseFloat(rawFact.confidence) || 0.92,
-                sourceCount: 1,
-                lastVerified: Date.now(),
-                context: rawFact.context || "synchronized-learning"
-              };
+          for (const item of settled) {
+            if (item.status === "fulfilled") {
+              const val = item.value;
+              results.push({
+                providerId: val.id,
+                providerName: val.name,
+                success: val.success,
+                latency: val.latency,
+                error: val.error,
+                extractedCount: val.facts ? val.facts.length : 0
+              });
 
-              try {
-                // Integrate fact into Graph
-                // @ts-ignore
-                const integrated = await learning.integrateFact(fact, graph);
-                if (integrated) {
-                  factsLearned.push({
-                    provider: val.name,
-                    fact: `${fact.subject} ${fact.predicate} ${fact.object}`,
-                    context: fact.context,
-                    confidence: fact.confidence,
-                    source: fact.rawSource
-                  });
+              if (val.success && Array.isArray(val.facts)) {
+                for (const rawFact of val.facts) {
+                  if (!rawFact.subject || !rawFact.predicate || !rawFact.object) continue;
+
+                  const fact: Fact = {
+                    id: "fa_" + Math.random().toString(36).substring(2, 11),
+                    subject: rawFact.subject.toLowerCase().trim(),
+                    predicate: rawFact.predicate.toLowerCase().trim(),
+                    object: rawFact.object.toLowerCase().trim(),
+                    rawSource: rawFact.rawSource || `Extracted by ${val.name}`,
+                    confidence: parseFloat(rawFact.confidence) || 0.92,
+                    sourceCount: 1,
+                    lastVerified: Date.now(),
+                    context: rawFact.context || "synchronized-learning"
+                  };
+
+                  try {
+                    // @ts-ignore
+                    const integrated = await learning.integrateFact(fact, graph);
+                    if (integrated) {
+                      factsLearned.push({
+                        provider: val.name,
+                        fact: `${fact.subject} ${fact.predicate} ${fact.object}`,
+                        context: fact.context,
+                        confidence: fact.confidence,
+                        source: fact.rawSource
+                      });
+                    }
+                  } catch (e) {}
                 }
-              } catch (integrateErr) {
-                console.error("Integration fail:", integrateErr);
               }
             }
           }
         }
+
+        // Run complementary heuristic derivations!
+        console.log(`[BACKGROUND TRAINER] Running deductive and inductive heuristics on fully processed graph.`);
+        const heuristicsReport = learning.runAdvancedLearningHeuristics(graph);
+        
+        // Persist fully trained state changes
+        persistChanges();
+
+        // Update metrics indicators
+        metrics.learnedFacts = learning.facts.length;
+        metrics.averageConfidence = learning.facts.length > 0
+          ? learning.facts.reduce((sum, f) => sum + f.confidence, 0) / learning.facts.length
+          : 0.95;
+
+        // Save progress indicators
+        lastTrainingResult = {
+          success: true,
+          topic: cleanTopic,
+          completedAt: Date.now(),
+          activeChannelsCount: activeProviders.length === 0 ? 1 : activeProviders.length,
+          results,
+          factsLearned,
+          heuristicsReport
+        };
+      } catch (trainErr: any) {
+        console.error("[BACKGROUND TRAINER] CRITICAL FAIL:", trainErr);
+        lastTrainingResult = {
+          success: false,
+          topic: cleanTopic,
+          completedAt: Date.now(),
+          error: trainErr.message || "Failed deep co-training sweep."
+        };
+      } finally {
+        isTrainingActive = false;
+        console.log(`[BACKGROUND TRAINER] Background auto-train sweep finalized.`);
       }
-    }
-
-    // --- EXECUTE THE 5 COMPLEMENTARY HEURISTIC METHODS ---
-    console.log(`[Stellight] Initiating 5 complementary cognitive learning heuristical sweeps...`);
-    const heuristicsReport = learning.runAdvancedLearningHeuristics(graph);
-
-    // Persist fully trained state changes
-    persistChanges();
-
-    // Adjust training metrics
-    metrics.learnedFacts = learning.facts.length;
-    metrics.averageConfidence = learning.facts.length > 0
-      ? learning.facts.reduce((sum, f) => sum + f.confidence, 0) / learning.facts.length
-      : 0.95;
-
-    res.json({
-      success: true,
-      topic: cleanTopic,
-      activeChannelsCount: activeProviders.length === 0 ? 1 : activeProviders.length,
-      results,
-      factsLearned,
-      heuristicsReport
-    });
+    })();
   });
 
   // API: Teach Facts directly to Knowledge Base

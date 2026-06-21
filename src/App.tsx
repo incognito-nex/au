@@ -55,10 +55,17 @@ export default function App() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Mount loading
+  // Mount loading and active real-time polling scheduler
   useEffect(() => {
     fetchHealthCheck();
     fetchEngineState();
+
+    // Dynamically poll server state to stream learned facts, conflicts, and training progress in real-time
+    const intervalId = setInterval(() => {
+      fetchEngineState();
+    }, 4000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchHealthCheck = async () => {
@@ -218,6 +225,13 @@ export default function App() {
 
           {/* Operational Metrics Ribbon */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 z-10 text-xs">
+            {engineState?.isTrainingActive && (
+              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-3 py-1.5 rounded-xl font-mono animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+                <span className="text-[10px] uppercase font-bold">CO-LEARNING: <span className="text-white">"{engineState.activeTrainingTopic}"</span></span>
+              </div>
+            )}
+
             {/* API Health & Connection Indicators */}
             <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800/80 px-3 py-1.5 rounded-xl font-mono">
               <span className={`w-2 h-2 rounded-full ${
@@ -592,7 +606,10 @@ export default function App() {
           )}
 
           {activeTab === "providers" && (
-            <APIConsole />
+            <APIConsole 
+              engineState={engineState}
+              onFetchEngineState={fetchEngineState}
+            />
           )}
         </motion.div>
 

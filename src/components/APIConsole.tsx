@@ -32,7 +32,12 @@ interface ProviderConfig {
   apiUrl?: string;
 }
 
-export function APIConsole() {
+interface APIConsoleProps {
+  engineState?: any;
+  onFetchEngineState?: () => void;
+}
+
+export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps) {
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [execMode, setExecMode] = useState<"waterfall" | "multithread">("multithread");
   const [loading, setLoading] = useState(false);
@@ -79,10 +84,10 @@ export function APIConsole() {
     localStorage.setItem("stellight_auto_rotate", val.toString());
   };
 
-  // Auto-train states
+  // Dynamic real-time training states synced to background process
+  const isTraining = engineState?.isTrainingActive ?? false;
+  const trainingResult = engineState?.lastTrainingResult ?? null;
   const [trainTopic, setTrainTopic] = useState("");
-  const [isTraining, setIsTraining] = useState(false);
-  const [trainingResult, setTrainingResult] = useState<any>(null);
   const [trainingError, setTrainingError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,8 +95,6 @@ export function APIConsole() {
   }, []);
 
   const handleAutoTrain = async () => {
-    setIsTraining(true);
-    setTrainingResult(null);
     setTrainingError(null);
     try {
       const res = await fetch("/api/engine/autotrain", {
@@ -101,14 +104,16 @@ export function APIConsole() {
       });
       const data = await res.json();
       if (data.success) {
-        setTrainingResult(data);
+        // Clear input and instantly notify parent so background training shows in real-time
+        setTrainTopic("");
+        if (onFetchEngineState) {
+          onFetchEngineState();
+        }
       } else {
         setTrainingError(data.error || "Collaborative co-training returned an unusual error.");
       }
     } catch (err) {
       setTrainingError("Failed to establish server communication with training pipeline.");
-    } finally {
-      setIsTraining(false);
     }
   };
 

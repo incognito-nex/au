@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { MemoryChunk, Fact } from "../engine/types.ts";
-import { Database, AlertTriangle, BookOpen, Clock, Activity, ShieldCheck, Sparkles } from "lucide-react";
+import { Database, AlertTriangle, BookOpen, Clock, Activity, ShieldCheck, Sparkles, RefreshCw } from "lucide-react";
 
 interface ConflictItem {
   existing: Fact;
@@ -25,6 +25,8 @@ interface MemoryListsProps {
 
 export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts, onFetchEngineState }: MemoryListsProps) {
   const [activeTab, setActiveTab] = useState<"facts" | "memories" | "conflicts">("facts");
+  const [resolvingKeys, setResolvingKeys] = useState<Record<string, boolean>>({});
+  const [isResolvingAll, setIsResolvingAll] = useState(false);
 
   return (
     <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-6">
@@ -239,14 +241,26 @@ export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts, o
               </div>
               {conflicts.filter(c => !c.resolved).length > 0 && (
                 <button
+                  disabled={isResolvingAll}
                   onClick={async () => {
-                    await fetch("/api/engine/conflicts/resolve/all-ai", { method: "POST" });
-                    if (onFetchEngineState) onFetchEngineState();
+                    setIsResolvingAll(true);
+                    try {
+                      await fetch("/api/engine/conflicts/resolve/all-ai", { method: "POST" });
+                      if (onFetchEngineState) onFetchEngineState();
+                    } catch (e) {
+                      console.error("Resolve all fail:", e);
+                    } finally {
+                      setIsResolvingAll(false);
+                    }
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-mono font-bold text-[10px] uppercase rounded-lg shadow-lg shadow-amber-950/25 transition-all active:scale-95 cursor-pointer border border-amber-400/20"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 text-slate-950 font-mono font-bold text-[10px] uppercase rounded-lg shadow-lg shadow-amber-950/25 transition-all active:scale-95 cursor-pointer border border-amber-400/20"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-pulse" />
-                  Resolve All via AI
+                  {isResolvingAll ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-pulse" />
+                  )}
+                  {isResolvingAll ? "Resolving All..." : "Resolve All via AI"}
                 </button>
               )}
             </div>
@@ -296,47 +310,82 @@ export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts, o
                     </div>
 
                     {!conflict.resolved && (
-                      <div className="flex bg-[#0c1017] border border-slate-800 p-2 rounded-xl text-xs gap-3 font-mono justify-end">
-                        <span className="text-slate-500 pt-1 text-[10px] uppercase font-bold mr-auto">Resolution Module:</span>
-                        <button
-                          onClick={async () => {
-                            await fetch("/api/engine/conflicts/resolve/manual", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "existing" })
-                            });
-                            if (onFetchEngineState) onFetchEngineState();
-                          }}
-                          className="px-2 py-1 text-sky-400 hover:bg-sky-500/10 rounded border border-transparent hover:border-sky-500/30 transition-colors"
-                        >
-                          Manual Pick: EXISTING
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await fetch("/api/engine/conflicts/resolve/manual", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "incoming" })
-                            });
-                            if (onFetchEngineState) onFetchEngineState();
-                          }}
-                          className="px-2 py-1 text-emerald-400 hover:bg-emerald-500/10 rounded border border-transparent hover:border-emerald-500/30 transition-colors"
-                        >
-                          Manual Pick: INCOMING
-                        </button>
-                        <button
-                          onClick={async () => {
-                            await fetch("/api/engine/conflicts/resolve/ai", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id })
-                            });
-                            if (onFetchEngineState) onFetchEngineState();
-                          }}
-                          className="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded border border-transparent hover:border-amber-500/30 transition-colors"
-                        >
-                          AI Auto Solve
-                        </button>
+                      <div className="flex bg-[#0c1017] border border-slate-800 p-2 rounded-xl text-xs gap-3 font-mono justify-end items-center">
+                        <span className="text-slate-500 text-[10px] uppercase font-bold mr-auto">Resolution Module:</span>
+                        
+                        {resolvingKeys[`${conflict.existing.id}-${conflict.incoming.id}`] ? (
+                          <div className="flex items-center gap-2 text-amber-400 text-[11px] px-2 py-1 bg-amber-500/5 rounded border border-amber-500/10">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Unifying contradiction schema...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={async () => {
+                                const key = `${conflict.existing.id}-${conflict.incoming.id}`;
+                                setResolvingKeys(prev => ({ ...prev, [key]: true }));
+                                try {
+                                  await fetch("/api/engine/conflicts/resolve/manual", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "existing" })
+                                  });
+                                  if (onFetchEngineState) onFetchEngineState();
+                                } catch (e) {
+                                  console.error(e);
+                                } finally {
+                                  setResolvingKeys(prev => ({ ...prev, [key]: false }));
+                                }
+                              }}
+                              className="px-2 py-1 text-sky-400 hover:bg-sky-500/10 rounded border border-transparent hover:border-sky-500/30 transition-colors cursor-pointer"
+                            >
+                              Manual Pick: EXISTING
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const key = `${conflict.existing.id}-${conflict.incoming.id}`;
+                                setResolvingKeys(prev => ({ ...prev, [key]: true }));
+                                try {
+                                  await fetch("/api/engine/conflicts/resolve/manual", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "incoming" })
+                                  });
+                                  if (onFetchEngineState) onFetchEngineState();
+                                } catch (e) {
+                                  console.error(e);
+                                } finally {
+                                  setResolvingKeys(prev => ({ ...prev, [key]: false }));
+                                }
+                              }}
+                              className="px-2 py-1 text-emerald-400 hover:bg-emerald-500/10 rounded border border-transparent hover:border-emerald-500/30 transition-colors cursor-pointer"
+                            >
+                              Manual Pick: INCOMING
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const key = `${conflict.existing.id}-${conflict.incoming.id}`;
+                                setResolvingKeys(prev => ({ ...prev, [key]: true }));
+                                try {
+                                  await fetch("/api/engine/conflicts/resolve/ai", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id })
+                                  });
+                                  if (onFetchEngineState) onFetchEngineState();
+                                } catch (e) {
+                                  console.error(e);
+                                } finally {
+                                  setResolvingKeys(prev => ({ ...prev, [key]: false }));
+                                }
+                              }}
+                              className="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded border border-transparent hover:border-amber-500/30 transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <Sparkles className="w-3 h-3 text-amber-400" />
+                              AI Auto Solve
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
