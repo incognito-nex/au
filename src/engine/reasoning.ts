@@ -237,12 +237,18 @@ INSTRUCTIONS
     const learnedFacts = await learning.learnFromTurn(userInput, generatedResponse, graph);
     memory.addShortTerm(`System generated answer: "${generatedResponse.slice(0, 100)}..."`, [normalizedInput.primaryConcept]);
     
+    // Run Advanced Heuristics to supercharge knowledge!
+    const heuristicsReport = learning.runAdvancedLearningHeuristics(graph);
+    
     // Compile semantic compression
     memory.compressSemanticMemories(Array.from(graph.nodes.values()));
 
     // Update metrics
     metrics.totalInteractions += 1;
-    metrics.learnedFacts += learnedFacts.length;
+    metrics.learnedFacts += learnedFacts.length +
+      heuristicsReport.deductiveLearned + heuristicsReport.inductiveLearned +
+      heuristicsReport.analogiesMapped;
+
     if (learnedFacts.length > 0) {
       metrics.retrievalSuccessCount += 1;
       // Recalculate average confidence of facts
@@ -254,6 +260,7 @@ INSTRUCTIONS
 
     steps[6].details = {
       extractedFactsCount: learnedFacts.length,
+      heuristicsExtrapolated: heuristicsReport.deductiveLearned + heuristicsReport.inductiveLearned,
       newFacts: learnedFacts.map(f => `${f.subject} ${f.predicate} ${f.object}`),
       metricsUpdated: {
         totalInteractions: metrics.totalInteractions,

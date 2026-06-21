@@ -422,6 +422,7 @@ export default function App() {
               episodic={engineState?.episodic ?? []}
               semantic={engineState?.semantic ?? []}
               conflicts={engineState?.conflicts ?? []}
+              onFetchEngineState={fetchEngineState}
             />
           )}
 

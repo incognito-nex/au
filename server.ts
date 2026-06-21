@@ -546,6 +546,48 @@ You MUST return a strict JSON block exactly matching this schema, with no preamb
     }
   });
 
+  // API: Resolve Conflict Manually
+  app.post("/api/engine/conflicts/resolve/manual", async (req, res) => {
+    const { existingId, incomingId, winner } = req.body;
+    if (!existingId || !incomingId || !winner) {
+      return res.status(400).json({ error: "Missing required parameters." });
+    }
+
+    try {
+      const resolved = await learning.applyConflictResolution(existingId, incomingId, winner, graph, 1.0);
+      if (resolved) {
+        metrics.mistakesResolved += 1;
+        persistChanges();
+        res.json({ success: true, fact: resolved });
+      } else {
+        res.status(404).json({ error: "Conflict not found." });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to resolve conflict manually." });
+    }
+  });
+
+  // API: Resolve Conflict autonomously using AI
+  app.post("/api/engine/conflicts/resolve/ai", async (req, res) => {
+    const { existingId, incomingId } = req.body;
+    if (!existingId || !incomingId) {
+      return res.status(400).json({ error: "Missing required parameters." });
+    }
+
+    try {
+      const resolved = await learning.resolveConflictAutonomous(existingId, incomingId, graph);
+      if (resolved) {
+        metrics.mistakesResolved += 1;
+        persistChanges();
+        res.json({ success: true, fact: resolved });
+      } else {
+        res.status(404).json({ error: "Conflict not found or resolution failed." });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to resolve conflict autonomously." });
+    }
+  });
+
   // API: Wipes memory databases completely
   app.post("/api/engine/reset", (req, res) => {
     try {

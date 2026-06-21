@@ -131,24 +131,7 @@ ${context}`;
           resolved: false
         });
 
-        // Trigger autonomous conflict resolution using the Gemini Teacher
-        const resolvedFact = await this.resolveConflict(conflicting, fact);
-        if (resolvedFact) {
-          // If the teacher chose the incoming fact, replace the conflicting one
-          if (resolvedFact.object === fact.object) {
-            const conflictPos = this.facts.indexOf(conflicting);
-            if (conflictPos !== -1) {
-              this.facts.splice(conflictPos, 1);
-            }
-            this.facts.push(resolvedFact);
-            await this.instantiateGraphComponents(resolvedFact, graph);
-            return resolvedFact;
-          } else {
-            // The existing fact won. Reinforce confidence of existing
-            conflicting.confidence = resolvedFact.confidence;
-            return conflicting;
-          }
-        }
+        // Add to conflicts but do NOT auto-resolve instantly. Leave for manual or explicit AI solve.
         return null;
       }
     }
@@ -196,9 +179,50 @@ ${context}`;
   }
 
   /**
+   * Applies the determined factual winner and embeds it mechanically into the knowledge graph
+   */
+  public async applyConflictResolution(
+    existingId: string, 
+    incomingId: string, 
+    winner: "existing" | "incoming", 
+    graph: KnowledgeGraph,
+    confidenceOverride?: number
+  ) {
+    const conflictIndex = this.conflicts.findIndex(c => c.existing.id === existingId && c.incoming.id === incomingId);
+    if (conflictIndex === -1) return null;
+
+    const conflict = this.conflicts[conflictIndex];
+    conflict.resolved = true;
+    conflict.winnerId = winner === "incoming" ? conflict.incoming.id : conflict.existing.id;
+
+    if (winner === "incoming") {
+      const incomingFact = conflict.incoming;
+      if (typeof confidenceOverride === "number") incomingFact.confidence = confidenceOverride;
+      
+      const factPos = this.facts.indexOf(conflict.existing);
+      if (factPos !== -1) {
+        this.facts.splice(factPos, 1);
+      }
+      this.facts.push(incomingFact);
+      await this.instantiateGraphComponents(incomingFact, graph);
+      return incomingFact;
+    } else {
+      const existingFact = conflict.existing;
+      if (typeof confidenceOverride === "number") existingFact.confidence = confidenceOverride;
+      return existingFact;
+    }
+  }
+
+  /**
    * Resolves conceptual contradictions based on teacher consultation.
    */
-  private async resolveConflict(existing: Fact, incoming: Fact): Promise<Fact | null> {
+  public async resolveConflictAutonomous(existingId: string, incomingId: string, graph: KnowledgeGraph): Promise<Fact | null> {
+    const conflict = this.conflicts.find(c => c.existing.id === existingId && c.incoming.id === incomingId);
+    if (!conflict) return null;
+
+    const existing = conflict.existing;
+    const incoming = conflict.incoming;
+
     const prompt = `Solve a conceptual/factual contradiction in my cognitive knowledge graph! For context type: "${existing.context}".
 Existing Stored Fact: Subject [${existing.subject}] predicate [${existing.predicate}] is Object [${existing.object}] (Confidence ${existing.confidence}).
 New Counter Assertion: Subject [${incoming.subject}] predicate [${incoming.predicate}] is Object [${incoming.object}] (Confidence ${incoming.confidence}).
@@ -236,15 +260,10 @@ Analyze which is true. Output your verdict in strict JSON:
 
       console.log(`RESOURCE CONFLICT SOLVED: Winner is ${resolution.winner}. Reason: ${resolution.reason}`);
 
-      if (resolution.winner === "incoming") {
-        incoming.confidence = resolution.confidence;
-        return incoming;
-      } else {
-        existing.confidence = resolution.confidence;
-        return existing;
-      }
+      return await this.applyConflictResolution(existingId, incomingId, resolution.winner, graph, resolution.confidence);
     } catch (err) {
       console.error("Contradiction resolution failed, default to existing fact.", err);
+      // Let it pend instead of resolving default? No, wait. 
       return existing;
     }
   }

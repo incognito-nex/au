@@ -13,33 +13,13 @@ interface CognitiveTraceProps {
 
 export function CognitiveTrace({ trace }: CognitiveTraceProps) {
   const [expandedStepIdx, setExpandedStepIdx] = useState<number | null>(0);
-  const [displayedResponse, setDisplayedResponse] = useState("");
-
-  const responseText = trace?.response || "";
+  const [displayedResponse, setDisplayedResponse] = useState(
+    trace?.response || ""
+  );
 
   React.useEffect(() => {
-    if (!responseText) {
-      setDisplayedResponse("");
-      return;
-    }
-
-    const words = responseText.split(/(\s+)/); // keep whitespace matching
-    let currentIdx = 0;
-    setDisplayedResponse("");
-
-    const interval = setInterval(() => {
-      if (currentIdx < words.length) {
-        setDisplayedResponse((prev) => {
-          return prev + (words[currentIdx] || "");
-        });
-        currentIdx++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 15); // Naturally smooth fast typing pace
-
-    return () => clearInterval(interval);
-  }, [responseText]);
+    setDisplayedResponse(trace?.response || "");
+  }, [trace?.response]);
 
   if (!trace) {
     return (
@@ -306,9 +286,6 @@ export function CognitiveTrace({ trace }: CognitiveTraceProps) {
             {displayedResponse ? (
               <p className="whitespace-pre-wrap">
                 {displayedResponse}
-                {displayedResponse.length < (response || "").length && (
-                  <span className="inline-block w-1.5 h-4 ml-1.5 bg-emerald-400 animate-pulse align-middle" />
-                )}
               </p>
             ) : (
               <span className="text-slate-500 italic font-mono text-xs">

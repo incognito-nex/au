@@ -20,9 +20,10 @@ interface MemoryListsProps {
   episodic: MemoryChunk[];
   semantic: MemoryChunk[];
   conflicts: ConflictItem[];
+  onFetchEngineState?: () => void;
 }
 
-export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts }: MemoryListsProps) {
+export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts, onFetchEngineState }: MemoryListsProps) {
   const [activeTab, setActiveTab] = useState<"facts" | "memories" | "conflicts">("facts");
 
   return (
@@ -266,7 +267,7 @@ export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts }:
                       </div>
 
                       {/* Incoming */}
-                      <div className={`p-2.5 rounded-lg border text-xs font-mono ${
+                      <div className={`p-2.5 rounded-lg border text-xs font-mono relative ${
                         conflict.resolved && conflict.winnerId === conflict.incoming.id
                           ? "bg-emerald-950/15 border-emerald-500/35 text-emerald-300"
                           : "bg-slate-950 border-slate-900 text-slate-400"
@@ -276,6 +277,51 @@ export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts }:
                         <span className="text-[9px] mt-1.5 block text-slate-500 italic">Confidence: {(conflict.incoming.confidence * 100).toFixed(0)}%</span>
                       </div>
                     </div>
+
+                    {!conflict.resolved && (
+                      <div className="flex bg-[#0c1017] border border-slate-800 p-2 rounded-xl text-xs gap-3 font-mono justify-end">
+                        <span className="text-slate-500 pt-1 text-[10px] uppercase font-bold mr-auto">Resolution Module:</span>
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/engine/conflicts/resolve/manual", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "existing" })
+                            });
+                            if (onFetchEngineState) onFetchEngineState();
+                          }}
+                          className="px-2 py-1 text-sky-400 hover:bg-sky-500/10 rounded border border-transparent hover:border-sky-500/30 transition-colors"
+                        >
+                          Manual Pick: EXISTING
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/engine/conflicts/resolve/manual", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id, winner: "incoming" })
+                            });
+                            if (onFetchEngineState) onFetchEngineState();
+                          }}
+                          className="px-2 py-1 text-emerald-400 hover:bg-emerald-500/10 rounded border border-transparent hover:border-emerald-500/30 transition-colors"
+                        >
+                          Manual Pick: INCOMING
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await fetch("/api/engine/conflicts/resolve/ai", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ existingId: conflict.existing.id, incomingId: conflict.incoming.id })
+                            });
+                            if (onFetchEngineState) onFetchEngineState();
+                          }}
+                          className="px-2 py-1 text-amber-400 hover:bg-amber-500/10 rounded border border-transparent hover:border-amber-500/30 transition-colors"
+                        >
+                          AI Auto Solve
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
