@@ -28,10 +28,11 @@ import {
 import { KnowledgeGraphView } from "./components/KnowledgeGraphView.tsx";
 import { CognitiveTrace } from "./components/CognitiveTrace.tsx";
 import { MemoryLists } from "./components/MemoryLists.tsx";
+import { APIConsole } from "./components/APIConsole.tsx";
 import { ReasoningTrace } from "./engine/types.ts";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"chat" | "graph" | "memories" | "teach">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "graph" | "memories" | "teach" | "providers">("chat");
   const [chatMessage, setChatMessage] = useState("");
   const [engineState, setEngineState] = useState<any>(null);
   const [activeTrace, setActiveTrace] = useState<ReasoningTrace | null>(null);
@@ -241,7 +242,7 @@ export default function App() {
       <main className="z-10 flex-1 max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 gap-6">
         
         {/* Module Nav Tabs */}
-        <div className="flex bg-[#0d1117] border border-slate-900 p-1.5 rounded-2xl w-full sm:max-w-md mx-auto shadow-lg shadow-black/20">
+        <div className="flex bg-[#0d1117] border border-slate-900 p-1.5 rounded-2xl w-full sm:max-w-xl mx-auto shadow-lg shadow-black/20 flex-wrap sm:flex-nowrap gap-1">
           <button
             onClick={() => setActiveTab("chat")}
             className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
@@ -251,7 +252,7 @@ export default function App() {
             }`}
           >
             <Cpu className="w-4 h-4" />
-            Chat Console
+            Chat
           </button>
 
           <button
@@ -263,7 +264,7 @@ export default function App() {
             }`}
           >
             <Brain className="w-4 h-4" />
-            Graph Matrix
+            Graph
           </button>
 
           <button
@@ -291,6 +292,18 @@ export default function App() {
           >
             <PlusCircle className="w-4 h-4" />
             Teach
+          </button>
+
+          <button
+            onClick={() => setActiveTab("providers")}
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+              activeTab === "providers"
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Zap className="w-4 h-4" />
+            LLM Core
           </button>
         </div>
 
@@ -553,6 +566,10 @@ export default function App() {
               </div>
 
             </div>
+          )}
+
+          {activeTab === "providers" && (
+            <APIConsole />
           )}
         </motion.div>
 

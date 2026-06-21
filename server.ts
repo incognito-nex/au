@@ -20,6 +20,7 @@ import { CognitiveOrchestrator } from "./src/engine/reasoning.ts";
 import { SystemMetrics, Fact } from "./src/engine/types.ts";
 import { projectVectorTo2D } from "./src/engine/sentelum.ts";
 import { normalizeUserInput } from "./src/engine/normalization.ts";
+import { PROVIDERS_REGISTRY, PROMPT_EXECUTION_MODE, setPromptExecutionMode, testProviderConnectivity } from "./src/engine/provider.ts";
 
 async function startServer() {
   const app = express();
@@ -131,8 +132,56 @@ async function startServer() {
     res.json({ 
       status: "online", 
       time: new Date().toISOString(),
-      offlineMode: !process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "MY_GEMINI_API_KEY"
+      offlineMode: PROVIDERS_REGISTRY.filter(p => p.enabled && p.keys.length > 0).length === 0
     });
+  });
+
+  // API: Get Multi-provider configuration state
+  app.get("/api/engine/providers", (req, res) => {
+    res.json({
+      providers: PROVIDERS_REGISTRY,
+      mode: PROMPT_EXECUTION_MODE
+    });
+  });
+
+  // API: Update dynamic multi-provider settings
+  app.post("/api/engine/providers/config", (req, res) => {
+    const { id, enabled, selectedModel, keys } = req.body;
+    const provider = PROVIDERS_REGISTRY.find(p => p.id === id);
+    if (!provider) {
+      return res.status(404).json({ error: "Provider not found" });
+    }
+
+    if (enabled !== undefined) provider.enabled = !!enabled;
+    if (selectedModel !== undefined) provider.selectedModel = selectedModel;
+    if (keys !== undefined && Array.isArray(keys)) {
+      provider.keys = keys.filter(k => k && k.trim().length > 0);
+      provider.keyIndex = 0; // reset pointer
+    }
+
+    res.json({ success: true, provider });
+  });
+
+  // API: Change prompt execution orchestration mode (waterfall / multithread)
+  app.post("/api/engine/providers/mode", (req, res) => {
+    const { mode } = req.body;
+    if (mode === "waterfall" || mode === "multithread") {
+      setPromptExecutionMode(mode);
+      res.json({ success: true, mode: PROMPT_EXECUTION_MODE });
+    } else {
+      res.status(400).json({ error: "Invalid execution mode. Specify waterfall or multithread." });
+    }
+  });
+
+  // API: Test provider connectivity
+  app.post("/api/engine/providers/test", async (req, res) => {
+    const { id, keys } = req.body;
+    try {
+      const result = await testProviderConnectivity(id, keys);
+      res.json(result);
+    } catch (err: any) {
+      res.json({ success: false, latencyMs: 0, error: err.message || "Failed request" });
+    }
   });
 
   // API: Get Cognitive representation data
