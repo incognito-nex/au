@@ -381,6 +381,69 @@ export function APIConsole() {
                   )}
                 </div>
               </div>
+
+              {/* 5 Complementary Learning Heuristic Engines Dashboard */}
+              {trainingResult.heuristicsReport && (
+                <div className="space-y-4 pt-2">
+                  <h5 className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 bg-emerald-400 animate-ping rounded-full" />
+                    INTEGRATED COGNITIVE ENGINES (HEURISTICS SWEEP COMPLETED)
+                  </h5>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <div className="bg-[#090d14] border border-slate-900 rounded-xl p-3 text-center">
+                      <span className="text-[9px] text-slate-500 block uppercase font-mono font-semibold">1. Syllogistic Deduction</span>
+                      <span className="text-sm font-bold text-emerald-400 block mt-1">+{trainingResult.heuristicsReport.deductiveLearned} relations</span>
+                      <span className="text-[8px] text-slate-600 block mt-0.5">Transitive inference [A is B, B is C]</span>
+                    </div>
+                    <div className="bg-[#090d14] border border-slate-900 rounded-xl p-3 text-center">
+                      <span className="text-[9px] text-slate-500 block uppercase font-mono font-semibold">2. Concept Inductor</span>
+                      <span className="text-sm font-bold text-teal-400 block mt-1">+{trainingResult.heuristicsReport.inductiveLearned} links</span>
+                      <span className="text-[8px] text-slate-600 block mt-0.5">Abstract context grouping</span>
+                    </div>
+                    <div className="bg-[#090d14] border border-slate-900 rounded-xl p-3 text-center">
+                      <span className="text-[9px] text-slate-500 block uppercase font-mono font-semibold">3. Entropy Pruning</span>
+                      <span className="text-sm font-bold text-amber-500 block mt-1">-{trainingResult.heuristicsReport.entropyPruned} anomalies</span>
+                      <span className="text-[8px] text-slate-600 block mt-0.5">Self-healing contradiction sweep</span>
+                    </div>
+                    <div className="bg-[#090d14] border border-slate-900 rounded-xl p-3 text-center">
+                      <span className="text-[9px] text-slate-500 block uppercase font-mono font-semibold">4. Analogy Alignment</span>
+                      <span className="text-sm font-bold text-indigo-400 block mt-1">+{trainingResult.heuristicsReport.analogiesMapped} maps</span>
+                      <span className="text-[8px] text-slate-600 block mt-0.5">Domain role structural alignment</span>
+                    </div>
+                    <div className="bg-[#090d14] border border-slate-900 rounded-xl p-3 text-center">
+                      <span className="text-[9px] text-slate-500 block uppercase font-mono font-semibold">5. Density Weighting</span>
+                      <span className="text-sm font-bold text-sky-400 block mt-1">{trainingResult.heuristicsReport.densityStrengthened} nodes</span>
+                      <span className="text-[8px] text-slate-600 block mt-0.5">Frequency co-occurrence boost</span>
+                    </div>
+                  </div>
+
+                  {/* Terminal Execution Logs */}
+                  <div className="bg-slate-950/70 border border-slate-900 rounded-xl p-3.5 max-h-[140px] overflow-y-auto styled-scrollbar font-mono text-[10px] text-slate-400 space-y-1">
+                    <p className="text-slate-600 border-b border-slate-900 pb-1.5 mb-1.5 uppercase tracking-wide flex justify-between">
+                      <span>HEURISTIC COGNITIVE INTELLIGENCE TERMINAL</span>
+                      <span className="text-emerald-500">READY</span>
+                    </p>
+                    {trainingResult.heuristicsReport.heuristicLogs && trainingResult.heuristicsReport.heuristicLogs.length > 0 ? (
+                      trainingResult.heuristicsReport.heuristicLogs.map((logLine: string, li: number) => {
+                        let colorClass = "text-slate-300";
+                        if (logLine.startsWith("[Deduction]")) colorClass = "text-emerald-400";
+                        if (logLine.startsWith("[Inductive Category]")) colorClass = "text-teal-400";
+                        if (logLine.startsWith("[Entropy Pruning]")) colorClass = "text-amber-400";
+                        if (logLine.startsWith("[Analogy Alignment]")) colorClass = "text-indigo-400";
+                        return (
+                          <div key={li} className="flex gap-2">
+                            <span className="text-slate-650 font-bold">»</span>
+                            <p className={colorClass}>{logLine}</p>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p className="text-slate-600 italic">No structural shifts occurred in local heuristics pass.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -41,6 +41,7 @@ export default function App() {
 
   // Loading indicators
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [teachLoading, setTeachLoading] = useState(false);
   const [wipeLoading, setWipeLoading] = useState(false);
 
@@ -88,13 +89,10 @@ export default function App() {
     }
   };
 
-  const handleChatSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatMessage.trim() || chatLoading) return;
-
+  const executePipelineQuery = async (textQuery: string) => {
+    if (chatLoading) return;
     setChatLoading(true);
-    const textQuery = chatMessage.trim();
-    setChatMessage("");
+    setChatError(null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -107,15 +105,29 @@ export default function App() {
         const result = await res.json();
         if (result.success) {
           setActiveTrace(result.trace);
-          // Refetch fresh states
           await fetchEngineState();
+        } else {
+          setChatError(result.error || "Query execution declined inside pipeline.");
         }
+      } else {
+        const errText = await res.text();
+        setChatError(`Server responded with status ${res.status}: ${errText}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed executing cognitive chat:", err);
+      setChatError(err.message || "No routing access found to backend server.");
     } finally {
       setChatLoading(false);
     }
+  };
+
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatMessage.trim() || chatLoading) return;
+
+    const textQuery = chatMessage.trim();
+    setChatMessage("");
+    await executePipelineQuery(textQuery);
   };
 
   const handleTeachSubmit = async (e: React.FormEvent) => {
@@ -360,6 +372,16 @@ export default function App() {
                   </button>
                 </form>
 
+                {chatError && (
+                  <div className="p-3 bg-red-950/15 border border-red-900/35 text-red-400 rounded-xl font-mono text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                    <div>
+                      <p className="font-bold uppercase text-[9px]">Query Process Disruption</p>
+                      <p className="mt-0.5 text-slate-400">{chatError}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Prompt ideas buttons */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 text-[10px] font-mono text-slate-400">
                   <span className="mr-1">TRY SUGGESTIONS:</span>
@@ -372,7 +394,7 @@ export default function App() {
                     <button
                       key={i}
                       type="button"
-                      onClick={() => setChatMessage(phrase)}
+                      onClick={() => executePipelineQuery(phrase)}
                       className="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 hover:border-slate-700/60 text-slate-300 transition-colors cursor-pointer"
                     >
                       &ldquo;{phrase}&rdquo;
