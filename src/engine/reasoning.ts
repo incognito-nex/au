@@ -191,7 +191,7 @@ export class CognitiveOrchestrator {
       `- Global Belief: ${s.content}`
     ).join("\n");
 
-    const systemPromptMessage = `You are the linguistic mouth of the STELLIGHT Sentelum Engine.
+    const systemPromptMessage = `You are the linguistic mouth of the STARLIGHT AI Engine.
 You do NOT invent knowledge of your own. You must reason strictly based on the retrieved facts, memories, and concepts provided below.
 
 ==================================
@@ -213,7 +213,7 @@ ${episodicContext || "No matching past experiences."}
 INSTRUCTIONS
 ==================================
 1. Synthesize a elegant response explaining or answering the user's input.
-2. Rely strictly on the verified facts above. If you mention facts outside the provided scope, explicitly state "Stellight hypothesis: [Fact] (Hypothetical, confidence: 0.25)".
+2. Rely strictly on the verified facts above. If you mention facts outside the provided scope, explicitly state "Starlight hypothesis: [Fact] (Hypothetical, confidence: 0.25)".
 3. Cite sources dynamically. E.g. "...as Guido van Rossum created Python [confidence: 0.95]".
 4. Keep the response elegant, crisp, scientific, and direct.`;
 

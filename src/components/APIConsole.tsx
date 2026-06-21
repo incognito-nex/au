@@ -858,7 +858,6 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
 
             </div>
           </div>
-
           <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-4">
             <div className="border-b border-slate-800/80 pb-3 flex items-center gap-2">
               <Info className="w-4 h-4 text-emerald-400" />
@@ -869,7 +868,7 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
 
             <div className="space-y-3.5 text-xs text-slate-400 leading-normal font-sans">
               <p>
-                Stellight supports **Multi-threaded Parallel Raced** prompts. When multiple models are enabled, it triggers requests at the same time and races them inside Node.js.
+                Starlight supports **Multi-threaded Parallel Raced** prompts. When multiple models are enabled, it triggers requests at the same time and races them inside Node.js.
               </p>
 
               <div className="bg-[#12161f] p-3 rounded-xl border border-slate-800/60 font-mono space-y-2 text-[11px]">
@@ -878,7 +877,7 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
                   CONCURRENCY PROTECTION
                 </span>
                 <p className="text-slate-500 text-[10px] leading-tight">
-                  If any single model hits a rate-limit, exhaustion, or times out, Stellight automatically ignores the failure and returns the fastest complete answer from another channel.
+                  If any single model hits a rate-limit, exhaustion, or times out, Starlight automatically ignores the failure and returns the fastest complete answer from another channel.
                 </p>
               </div>
 
@@ -888,7 +887,7 @@ export function APIConsole({ engineState, onFetchEngineState }: APIConsoleProps)
                   KEY ROTATION POOLS
                 </span>
                 <p className="text-slate-500 text-[10px] leading-tight">
-                  Add multiple API keys separated by commas. Stellight will cycle to the next key on any failure, ensuring near-infinite tier uptime!
+                  Add multiple API keys separated by commas. Starlight will cycle to the next key on any failure, ensuring near-infinite tier uptime!
                 </p>
               </div>
             </div>

@@ -11,7 +11,7 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Imports for Stellight Cognitive Engine
+// Imports for Starlight Cognitive Engine
 import { KnowledgeGraph } from "./src/engine/knowledge.ts";
 import { CognitiveMemory } from "./src/engine/memory.ts";
 import { LearningSystem } from "./src/engine/learning.ts";
@@ -273,7 +273,7 @@ async function startServer() {
     // Immediately respond to client
     res.json({
       success: true,
-      message: "Stellight Sentelum Auto-Training initiated in background.",
+      message: "Starlight Auto-Training initiated in background.",
       topic: cleanTopic,
       onlineChannels: activeProviders.map(p => p.name)
     });
@@ -321,7 +321,7 @@ async function startServer() {
 
       try {
         if (activeProviders.length === 0) {
-          console.log(`[Stellight Background] No keys online. Performing offline knowledge fallback for topic: "${cleanTopic}"`);
+          console.log(`[Starlight Background] No keys online. Performing offline knowledge fallback for topic: "${cleanTopic}"`);
           
           // Pattern matching on the rich local knowledge database
           let matchedFacts = FREE_KNOWLEDGE_DATABASES.filter(
@@ -766,7 +766,7 @@ You MUST return a strict JSON block exactly matching this schema, with no preamb
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Stellight] Express container listening on http://localhost:${PORT}`);
+    console.log(`[Starlight] Express container listening on http://localhost:${PORT}`);
   });
 }
 

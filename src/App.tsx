@@ -33,6 +33,9 @@ import { ReasoningTrace } from "./engine/types.ts";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"chat" | "graph" | "memories" | "teach" | "providers">("chat");
+  const [theme, setTheme] = useState<"slate" | "charcoal" | "emerald" | "cyber" | "minimal" | "amethyst">(() => {
+    return (localStorage.getItem("theme") as any) || "slate";
+  });
   const [chatMessage, setChatMessage] = useState("");
   const [engineState, setEngineState] = useState<any>(null);
   const [activeTrace, setActiveTrace] = useState<ReasoningTrace | null>(null);
@@ -194,15 +197,15 @@ export default function App() {
   };
 
   return (
-    <div id="root-console" className="min-h-screen bg-[#06080d] text-slate-100 flex flex-col selection:bg-emerald-500/25 selection:text-emerald-300">
+    <div id="root-console" className={`min-h-screen theme-${theme} bg-theme-bg text-theme-text-primary flex flex-col selection:bg-emerald-500/25 selection:text-emerald-300 relative transition-colors duration-300`}>
       
       {/* Dynamic Ambient Blur Background elements */}
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
-      <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-slate-500/5 blur-[100px] rounded-full pointer-events-none z-0"></div>
+      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-theme-border-active/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
+      <div className="absolute bottom-1/4 left-1/4 w-[400px] h-[400px] bg-theme-border-active/5 blur-[100px] rounded-full pointer-events-none z-0"></div>
 
       {/* Main Global Header */}
-      <header className="z-10 bg-[#0d1117]/65 border-b border-slate-900/60 p-4 sticky top-0 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="z-10 bg-theme-panel/65 border-b border-theme-border p-4 sticky top-0 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
           
           {/* Logo Brand Title */}
           <div className="flex items-center gap-3">
@@ -210,21 +213,21 @@ export default function App() {
               <Cpu className="w-6 h-6 text-slate-950 stroke-[2.2]" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-mono tracking-widest text-emerald-400 font-extrabold flex items-center gap-1">
-                Next-Gen Cognitive Architecture
+              <span className="text-[10px] uppercase font-mono tracking-widest text-[#10b981] font-extrabold flex items-center gap-1">
+                Starlight AI Core
                 <Flame className="w-3 h-3 text-amber-500 inline fill-amber-500" />
               </span>
-              <h1 className="font-display font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-slate-50 to-slate-300 tracking-tight flex items-center gap-2">
-                STELLIGHT
-                <span className="font-mono text-xs text-slate-400 font-semibold border border-slate-800 px-1.5 py-0.5 rounded bg-slate-900/50 uppercase">
-                  Sentelum Engine
+              <h1 className="font-display font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-theme-text-primary to-slate-400 tracking-tight flex items-center gap-2">
+                STARLIGHT
+                <span className="font-mono text-xs text-theme-text-secondary font-semibold border border-theme-border px-1.5 py-0.5 rounded bg-theme-panel/50 uppercase">
+                  AI Engine
                 </span>
               </h1>
             </div>
           </div>
 
-          {/* Operational Metrics Ribbon */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 z-10 text-xs">
+          {/* Operational Metrics Ribbon + Theme Selector */}
+          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-2 sm:gap-4 z-10 text-xs text-theme-text-secondary">
             {engineState?.isTrainingActive && (
               <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-3 py-1.5 rounded-xl font-mono animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
@@ -232,8 +235,28 @@ export default function App() {
               </div>
             )}
 
+            {/* Theme selector dropdown widget */}
+            <div className="flex items-center gap-1.5 bg-theme-panel/90 border border-theme-border px-3 py-1.5 rounded-xl text-xs">
+              <Settings className="w-3.5 h-3.5 text-theme-border-active" />
+              <select
+                value={theme}
+                onChange={(e: any) => {
+                  setTheme(e.target.value);
+                  localStorage.setItem("theme", e.target.value);
+                }}
+                className="bg-transparent text-theme-text-primary text-xs font-semibold font-sans outline-none focus:outline-none cursor-pointer border-none p-0 pr-1"
+              >
+                <option value="slate" className="bg-[#0c1017] text-slate-100">Deep Space (Slate)</option>
+                <option value="charcoal" className="bg-[#0c1017] text-slate-100">Cyber Blue (Charcoal)</option>
+                <option value="emerald" className="bg-[#0c1017] text-slate-100">Aurora (Emerald)</option>
+                <option value="cyber" className="bg-[#0c1017] text-slate-100">Midnight Gas (Cyber)</option>
+                <option value="minimal" className="bg-white text-slate-900">Alabaster (Light)</option>
+                <option value="amethyst" className="bg-[#0c1017] text-slate-100">Velvet Night (Amethyst)</option>
+              </select>
+            </div>
+
             {/* API Health & Connection Indicators */}
-            <div className="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800/80 px-3 py-1.5 rounded-xl font-mono">
+            <div className="flex items-center gap-1.5 bg-theme-panel/90 border border-theme-border px-3 py-1.5 rounded-xl font-mono">
               <span className={`w-2 h-2 rounded-full ${
                 healthStatus === "online" 
                   ? "bg-emerald-400 animate-pulse" 
@@ -241,23 +264,23 @@ export default function App() {
                     ? "bg-amber-400 animate-bounce" 
                     : "bg-red-400"
               }`}></span>
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px]">
                 {healthStatus === "online" 
-                  ? (offlineMode ? "OFFLINE CPU MODE" : "GEMINI TEACHER LIVE") 
-                  : "UNINITIALIZED"}
+                  ? (offlineMode ? "LOCAL OFFLINE CORE" : "GEMINI TEACHER LIVE") 
+                  : "CONNECTING..."}
               </span>
             </div>
 
             {/* Total facts learned metric */}
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/80 px-3 py-1.5 rounded-xl font-mono text-slate-400">
+            <div className="flex items-center gap-2 bg-theme-panel/90 border border-theme-border px-3 py-1.5 rounded-xl font-mono">
               <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Learned: <b className="text-slate-200">{engineState?.metrics?.learnedFacts ?? 4}</b> facts</span>
+              <span>Learned: <b className="text-theme-text-primary">{engineState?.metrics?.learnedFacts ?? 4}</b> facts</span>
             </div>
 
             {/* Total hits metric */}
-            <div className="flex items-center gap-2 bg-slate-900/90 border border-slate-800/80 px-3 py-1.5 rounded-xl font-mono text-slate-400">
-              <Clock className="w-3.5 h-3.5 text-sky-400" />
-              <span>Recall Hits: <b className="text-slate-200">{engineState?.metrics?.totalInteractions ?? 0}</b></span>
+            <div className="flex items-center gap-2 bg-theme-panel/90 border border-theme-border px-3 py-1.5 rounded-xl font-mono">
+              <Clock className="w-3.5 h-3.5 text-sky-450" />
+              <span>Reflections: <b className="text-theme-text-primary">{engineState?.metrics?.totalInteractions ?? 0}</b></span>
             </div>
           </div>
 
@@ -268,13 +291,13 @@ export default function App() {
       <main className="z-10 flex-1 max-w-7xl mx-auto w-full px-4 py-6 grid grid-cols-1 gap-6">
         
         {/* Module Nav Tabs */}
-        <div className="flex bg-[#0d1117] border border-slate-900 p-1.5 rounded-2xl w-full sm:max-w-xl mx-auto shadow-lg shadow-black/20 flex-wrap sm:flex-nowrap gap-1">
+        <div className="flex bg-theme-panel border border-theme-border p-1.5 rounded-2xl w-full sm:max-w-xl mx-auto shadow-lg shadow-black/20 flex-wrap sm:flex-nowrap gap-1">
           <button
             onClick={() => setActiveTab("chat")}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "chat"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-theme-border-active/10 text-theme-text-primary border border-theme-border-active/30 shadow-md font-bold"
+                : "text-theme-text-secondary hover:text-theme-text-primary"
             }`}
           >
             <Cpu className="w-4 h-4" />
@@ -283,10 +306,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab("graph")}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "graph"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-theme-border-active/10 text-theme-text-primary border border-theme-border-active/30 shadow-md font-bold"
+                : "text-theme-text-secondary hover:text-theme-text-primary"
             }`}
           >
             <Brain className="w-4 h-4" />
@@ -298,10 +321,10 @@ export default function App() {
               setActiveTab("memories");
               fetchEngineState();
             }}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "memories"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-theme-border-active/10 text-theme-text-primary border border-theme-border-active/30 shadow-md font-bold"
+                : "text-theme-text-secondary hover:text-theme-text-primary"
             }`}
           >
             <Database className="w-4 h-4" />
@@ -310,10 +333,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab("teach")}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "teach"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-theme-border-active/10 text-theme-text-primary border border-theme-border-active/30 shadow-md font-bold"
+                : "text-theme-text-secondary hover:text-theme-text-primary"
             }`}
           >
             <PlusCircle className="w-4 h-4" />
@@ -322,10 +345,10 @@ export default function App() {
 
           <button
             onClick={() => setActiveTab("providers")}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
               activeTab === "providers"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-md"
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-theme-border-active/10 text-theme-text-primary border border-theme-border-active/30 shadow-md font-bold"
+                : "text-theme-text-secondary hover:text-theme-text-primary"
             }`}
           >
             <Zap className="w-4 h-4" />
@@ -333,43 +356,44 @@ export default function App() {
           </button>
         </div>
 
-        {/* Tab Module Panels Renders */}
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="w-full h-auto"
-        >
-          {activeTab === "chat" && (
-            <div className="space-y-6">
-              
-              {/* Interactive prompt area */}
-              <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-6 shadow-2xl space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
-                    <Zap className="w-5 h-5" />
-                  </span>
-                  <div>
-                    <h2 className="font-sans font-bold text-slate-100 text-base">
-                      Interactive Cognitive Controller
-                    </h2>
-                    <p className="text-xs text-slate-400 leading-tight">
-                      Express queries to inspect Sentelum vector scores or state assertions (e.g. &quot;Python was created by Guido&quot;)
-                    </p>
+        {/* Tab Module Panels Renders - Enforcing stable dimensions */}
+        <div className="w-full min-h-[520px] transition-all duration-350">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full h-auto"
+          >
+            {activeTab === "chat" && (
+              <div className="space-y-6">
+                
+                {/* Interactive prompt area */}
+                <div className="bg-theme-panel border border-theme-border rounded-2xl p-6 shadow-2xl space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="p-1.5 bg-theme-border-active/10 text-theme-text-primary rounded-lg border border-theme-border-active/20">
+                      <Zap className="w-5 h-5 text-theme-border-active" />
+                    </span>
+                    <div>
+                      <h2 className="font-sans font-bold text-theme-text-primary text-base">
+                        Interactive Prompt Console
+                      </h2>
+                      <p className="text-xs text-theme-text-secondary leading-tight">
+                        Query the graph to retrieve coordinates, inspect semantic context, or teach new relations (e.g. &quot;Python was created by Guido&quot;)
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Main Prompter Forms */}
-                <form onSubmit={handleChatSubmit} className="flex gap-2 relative">
-                  <input
-                    type="text"
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    placeholder="Ask Stellight anything or teach it a relationship..."
-                    disabled={chatLoading}
-                    className="flex-1 bg-[#090d14]/90 border border-slate-800 focus:border-emerald-500/40 rounded-xl px-4 py-3 text-slate-200 text-sm outline-none transition-colors placeholder:text-slate-500 font-sans"
-                  />
+                  {/* Main Prompter Forms */}
+                  <form onSubmit={handleChatSubmit} className="flex gap-2 relative">
+                    <input
+                      type="text"
+                      value={chatMessage}
+                      onChange={(e) => setChatMessage(e.target.value)}
+                      placeholder="Ask Starlight anything or teach a relationship..."
+                      disabled={chatLoading}
+                      className="flex-1 bg-theme-bg border border-theme-border focus:border-theme-border-active/50 rounded-xl px-4 py-3 text-theme-text-primary text-sm outline-none transition-colors placeholder:text-theme-text-secondary/50 font-sans"
+                    />
                   <button
                     type="submit"
                     disabled={chatLoading || !chatMessage.trim()}
@@ -612,13 +636,14 @@ export default function App() {
             />
           )}
         </motion.div>
+        </div>
 
       </main>
 
       {/* Global Footer */}
-      <footer className="bg-[#07090e] border-t border-slate-950 p-4 text-center text-xs text-slate-500 font-mono flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto w-full z-10">
-        <p>© 2026 Stellight Sentelum Engine. All rights reserved.</p>
-        <div className="flex bg-[#0f121a] px-3 py-1.5 border border-slate-800 rounded-lg text-[10px] items-center gap-2 font-mono">
+      <footer className="bg-theme-panel border-t border-theme-border p-4 text-center text-xs text-theme-text-secondary font-mono flex flex-col md:flex-row items-center justify-between gap-4 max-w-7xl mx-auto w-full z-10">
+        <p>© 2026 Starlight AI Engine. All rights reserved.</p>
+        <div className="flex bg-[#0f121a] px-3 py-1.5 border border-slate-805 rounded-lg text-[10px] items-center gap-2 font-mono">
           <Brain className="w-3.5 h-3.5 text-emerald-400" />
           <span>Active Cognitive Nodes: {engineState?.nodes?.length ?? 0} | Facts cataloged: {engineState?.facts?.length ?? 0}</span>
         </div>

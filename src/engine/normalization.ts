@@ -47,7 +47,7 @@ Be rigorous and proportional with the vector weights (use values between 0.0 and
   try {
     const jsonStr = await queryTeacher(
       prompt,
-      `You are the Input Normalizer of the Stellight Sentelum Engine. You normalize text, extract intent and concepts, and represent them in a strict 16-D vector space.`,
+      `You are the Input Normalizer of the Starlight AI Engine. You normalize text, extract intent and concepts, and represent them in a strict 16-D vector space.`,
       normalizationSchema
     );
 

@@ -11,7 +11,7 @@ import { CognitiveMemory } from "./memory.js";
 import { LearningSystem } from "./learning.js";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const STORE_FILE = path.join(DATA_DIR, "stellight_store.json");
+const STORE_FILE = path.join(DATA_DIR, "starlight_store.json");
 
 export interface SerializedState {
   nodes: Node[];
@@ -60,7 +60,7 @@ export class EngineStorage {
       fs.writeFileSync(STORE_FILE, JSON.stringify(state, null, 2), "utf-8");
       return true;
     } catch (err) {
-      console.error("Failed to persist Stellight state:", err);
+      console.error("Failed to persist Starlight state:", err);
       return false;
     }
   }
@@ -74,7 +74,7 @@ export class EngineStorage {
       const content = fs.readFileSync(STORE_FILE, "utf-8");
       return JSON.parse(content) as SerializedState;
     } catch (err) {
-      console.error("Failed to read Stellight state from file:", err);
+      console.error("Failed to read Starlight state from file:", err);
       return null;
     }
   }

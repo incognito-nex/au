@@ -23,11 +23,11 @@ export function CognitiveTrace({ trace }: CognitiveTraceProps) {
 
   if (!trace) {
     return (
-      <div className="flex flex-col items-center justify-center text-center p-12 bg-[#0c1017]/85 border border-[#1e293b] rounded-2xl shadow-2xl">
-        <Hourglass className="w-10 h-10 text-slate-500 animate-spin mb-4" />
-        <h3 className="font-sans font-semibold text-slate-300 text-base">Awaiting Cognitive Input</h3>
-        <p className="text-xs text-slate-500 max-w-sm mt-1.5">
-          Send a query to the Stellight Sentelum Engine to witness the multi-layer cognitive reasoning trace in real-time
+      <div className="flex flex-col items-center justify-center text-center p-12 bg-theme-panel border border-theme-border rounded-2xl shadow-2xl">
+        <Hourglass className="w-10 h-10 text-slate-505 animate-spin mb-4" />
+        <h3 className="font-sans font-semibold text-theme-text-primary text-base">Awaiting Cognitive Input</h3>
+        <p className="text-xs text-theme-text-secondary max-w-sm mt-1.5">
+          Send a query to the Starlight AI Engine to witness the multi-layer cognitive reasoning trace in real-time
         </p>
       </div>
     );
@@ -267,17 +267,17 @@ export function CognitiveTrace({ trace }: CognitiveTraceProps) {
         </div>
 
         {/* Generated Answer Display */}
-        <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-4">
+        <div className="bg-theme-panel border border-theme-border rounded-2xl p-5 shadow-2xl space-y-4">
           <div className="border-b border-secondary pb-3 flex items-center gap-2">
             <span className="p-1 px-1.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
               <Quote className="w-4 h-4" />
             </span>
             <div>
-              <h4 className="font-sans font-bold text-sm text-slate-100">
+              <h4 className="font-sans font-bold text-sm text-theme-text-primary">
                 Cognitive Response Output
               </h4>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Stellight response synthesized with local long-term beliefs
+              <p className="text-[10px] text-theme-text-secondary mt-0.5">
+                Starlight response synthesized with local long-term beliefs
               </p>
             </div>
           </div>

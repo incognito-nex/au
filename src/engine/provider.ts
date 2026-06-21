@@ -140,7 +140,7 @@ export function rotateKey(pId: string) {
   const prov = PROVIDERS_REGISTRY.find(p => p.id === pId);
   if (prov && prov.keys.length > 1) {
     prov.keyIndex = (prov.keyIndex + 1) % prov.keys.length;
-    console.log(`[Stellight] Rotated API Key for provider "${pId}" to index ${prov.keyIndex}`);
+    console.log(`[Starlight] Rotated API Key for provider "${pId}" to index ${prov.keyIndex}`);
   }
 }
 
@@ -248,8 +248,8 @@ export async function callIndividualProviderDirect(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${key}`,
-          "HTTP-Referer": "https://stellight-sentelum-engine.org",
-          "X-Title": "Stellight Sentelum Engine"
+          "HTTP-Referer": "https://starlight-engine.ai",
+          "X-Title": "Starlight AI Engine"
         },
         body: JSON.stringify({
           model,
@@ -432,13 +432,13 @@ export async function queryTeacher(
   const activeProviders = PROVIDERS_REGISTRY.filter(p => p.enabled && p.keys.length > 0);
 
   if (activeProviders.length === 0) {
-    console.warn("[Stellight] No external API providers are enabled. Falling back to offline brain metrics.");
+    console.warn("[Starlight] No external API providers are enabled. Falling back to offline brain metrics.");
     return getOfflineFallbackResponse(prompt, jsonSchema);
   }
 
   // 1. CONCURRENT MULTI-THREADED MODE (Query enabled providers at the same time, return the fastest successful complete one)
   if (PROMPT_EXECUTION_MODE === "multithread" && activeProviders.length > 1) {
-    console.log(`[Stellight] Multi-threaded concurrent query mode. Firing ${activeProviders.length} providers in parallel...`);
+    console.log(`[Starlight] Multi-threaded concurrent query mode. Firing ${activeProviders.length} providers in parallel...`);
 
     const promiseResolvers = activeProviders.map(async (prov) => {
       let retryCount = 0;
@@ -462,18 +462,18 @@ export async function queryTeacher(
 
           if (result && result.trim().length > 0) {
             // Success! Inform details
-            console.log(`[Stellight] Concurrent win! Provider "${prov.name}" responded successfully.`);
+            console.log(`[Starlight] Concurrent win! Provider "${prov.name}" responded successfully.`);
             return result;
           }
           throw new Error(`Empty response from ${prov.id}`);
         } catch (err: any) {
-          console.warn(`[Stellight] Provider "${prov.id}" failed concurrent phase (Model: "${prov.selectedModel}", Key Index ${prov.keyIndex}). Error: ${err.message}`);
+          console.warn(`[Starlight] Provider "${prov.id}" failed concurrent phase (Model: "${prov.selectedModel}", Key Index ${prov.keyIndex}). Error: ${err.message}`);
           
           // Switch to another model till none work or when one reached quota
           if (prov.models.length > 1) {
             const nextIdx = (prov.models.indexOf(prov.selectedModel) + 1) % prov.models.length;
             prov.selectedModel = prov.models[nextIdx];
-            console.log(`[Stellight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to error/quota.`);
+            console.log(`[Starlight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to error/quota.`);
           }
           
           rotateKey(prov.id);
@@ -488,12 +488,12 @@ export async function queryTeacher(
       const fastestSucceededResult = await Promise.any(promiseResolvers);
       return fastestSucceededResult;
     } catch {
-      console.error("[Stellight] All concurrent raced channels failed. Redirecting to waterfall queue...");
+      console.error("[Starlight] All concurrent raced channels failed. Redirecting to waterfall queue...");
     }
   }
 
   // 2. WATERFALL SEQUENTIAL FAILOVER MODE
-  console.log("[Stellight] Running Waterfall mode provider queue...");
+  console.log("[Starlight] Running Waterfall mode provider queue...");
   for (const prov of activeProviders) {
     let retryAttempt = 0;
     const maxRetries = Math.max(1, prov.keys.length) * prov.models.length;
@@ -507,7 +507,7 @@ export async function queryTeacher(
       }
 
       try {
-        console.log(`[Stellight] Attempting sequential query using ${prov.name} (Model: "${prov.selectedModel}", index: ${prov.keyIndex})`);
+        console.log(`[Starlight] Attempting sequential query using ${prov.name} (Model: "${prov.selectedModel}", index: ${prov.keyIndex})`);
         const result = await callIndividualProviderDirect(
           prov.id,
           key || "dummy",
@@ -522,13 +522,13 @@ export async function queryTeacher(
         }
         throw new Error("Empty response");
       } catch (err: any) {
-        console.warn(`[Stellight] Waterfall breakdown for ${prov.name} (Model: "${prov.selectedModel}"): ${err.message}. Rotating key and model...`);
+        console.warn(`[Starlight] Waterfall breakdown for ${prov.name} (Model: "${prov.selectedModel}"): ${err.message}. Rotating key and model...`);
         
         // Switch to another model till none work or when one reached quota
         if (prov.models.length > 1) {
           const nextIdx = (prov.models.indexOf(prov.selectedModel) + 1) % prov.models.length;
           prov.selectedModel = prov.models[nextIdx];
-          console.log(`[Stellight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to breakdown.`);
+          console.log(`[Starlight] Auto-switched provider "${prov.id}" model to: "${prov.selectedModel}" due to breakdown.`);
         }
         
         rotateKey(prov.id);
@@ -538,7 +538,7 @@ export async function queryTeacher(
   }
 
   // Fallback to offline metrics
-  console.warn("[Stellight] API providers failed to respond. Triggering Offline core fallback.");
+  console.warn("[Starlight] API providers failed to respond. Triggering Offline core fallback.");
   return getOfflineFallbackResponse(prompt, jsonSchema);
 }
 
@@ -652,20 +652,20 @@ function getOfflineFallbackResponse(prompt: string, jsonSchema?: any): string {
 
   const textLower = prompt.toLowerCase();
   if (textLower.includes("python") && textLower.includes("guido")) {
-    return "Stellight local cognitive synthesis matches high-confidence beliefs: Python is a modern high-level script programming language, which was created by Guido van Rossum [confidence: 0.95] according to verified local facts.";
+    return "Starlight local cognitive synthesis matches high-confidence beliefs: Python is a modern high-level script programming language, which was created by Guido van Rossum [confidence: 0.95] according to verified local facts.";
   }
   if (textLower.includes("python")) {
-    return "Stellight local concept search: Python is a modern high-level script language belonging to the programming domain [confidence: 0.95]. It is related to machine-learning and software engineering pipelines.";
+    return "Starlight local concept search: Python is a modern high-level script language belonging to the programming domain [confidence: 0.95]. It is related to machine-learning and software engineering pipelines.";
   }
   if (textLower.includes("automobile") || textLower.includes("car")) {
-    return "Stellight local cognitive synthesis: An automobile is a level of passenger transport vehicle [confidence: 0.95] belonging to the transportation context dimension.";
+    return "Starlight local cognitive synthesis: An automobile is a level of passenger transport vehicle [confidence: 0.95] belonging to the transportation context dimension.";
   }
   if (textLower.includes("quantum")) {
-    return "Stellight Quantum cognitive path: Quantum-computing is a computing paradigm which requires superposition [confidence: 0.98] to evaluate multi-state vectors simultaneously, frequently causing non-locality properties.";
+    return "Starlight Quantum cognitive path: Quantum-computing is a computing paradigm which requires superposition [confidence: 0.98] to evaluate multi-state vectors simultaneously, frequently causing non-locality properties.";
   }
   if (textLower.includes("transformer") || textLower.includes("attention")) {
-    return "Stellight machine intelligence analysis: The transformer is a deep neural-network architecture which requires an attention-mechanism [confidence: 0.98] to weigh multi-token relationships.";
+    return "Starlight machine intelligence analysis: The transformer is a deep neural-network architecture which requires an attention-mechanism [confidence: 0.98] to weigh multi-token relationships.";
   }
 
-  return `[Stellight Offline Cognitive Core Solutions] Your query regarding your input message has been mapped to our localized concept system. Based on local semantic graphs, your primary concept is classified within general knowledge vectors with confidence 0.85.`;
+  return `[Starlight Offline Cognitive Core Solutions] Your query regarding your input message has been mapped to our localized concept system. Based on local semantic graphs, your primary concept is classified within general knowledge vectors with confidence 0.85.`;
 }

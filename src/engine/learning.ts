@@ -61,7 +61,7 @@ ${context}`;
     try {
       const jsonStr = await queryTeacher(
         prompt,
-        "You are the Fact Extraction unit of the Stellight Sentelum Engine. Output extracted facts in strict JSON format matching the schema.",
+        "You are the Fact Extraction unit of the Starlight AI Engine. Output extracted facts in strict JSON format matching the schema.",
         factExtractionSchema
       );
 
@@ -247,7 +247,7 @@ Analyze which is true. Output your verdict in strict JSON:
     try {
       const jsonStr = await queryTeacher(
         prompt,
-        "You are the Conflict Resolution unit of the Stellight Sentelum Engine. Carefully ground assertions to determine the truthful winner.",
+        "You are the Conflict Resolution unit of the Starlight AI Engine. Carefully ground assertions to determine the truthful winner.",
         schema
       );
 

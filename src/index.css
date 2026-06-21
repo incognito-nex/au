@@ -5,6 +5,80 @@
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  
+  --color-theme-bg: var(--theme-bg);
+  --color-theme-panel: var(--theme-panel);
+  --color-theme-panel-hover: var(--theme-panel-hover);
+  --color-theme-border: var(--theme-border);
+  --color-theme-border-active: var(--theme-border-active);
+  --color-theme-text-primary: var(--theme-text-primary);
+  --color-theme-text-secondary: var(--theme-text-secondary);
+}
+
+:root {
+  --theme-bg: #06080d;
+  --theme-panel: rgba(12, 16, 23, 0.85);
+  --theme-panel-hover: rgba(22, 27, 34, 0.9);
+  --theme-border: rgba(30, 41, 59, 0.5);
+  --theme-border-active: #10b981;
+  --theme-text-primary: #f1f5f9;
+  --theme-text-secondary: #94a3b8;
+  --theme-glow: rgba(16, 185, 129, 0.05);
+}
+
+.theme-charcoal {
+  --theme-bg: #090c12;
+  --theme-panel: #111723;
+  --theme-panel-hover: #162030;
+  --theme-border: #1e293b;
+  --theme-border-active: #38bdf8;
+  --theme-text-primary: #f8fafc;
+  --theme-text-secondary: #94a3b8;
+  --theme-glow: rgba(56, 189, 248, 0.06);
+}
+
+.theme-emerald {
+  --theme-bg: #040c09;
+  --theme-panel: #091712;
+  --theme-panel-hover: #0e221b;
+  --theme-border: #143527;
+  --theme-border-active: #10b981;
+  --theme-text-primary: #ecfdf5;
+  --theme-text-secondary: #86efac;
+  --theme-glow: rgba(16, 185, 129, 0.08);
+}
+
+.theme-cyber {
+  --theme-bg: #030005;
+  --theme-panel: #07010f;
+  --theme-panel-hover: #110221;
+  --theme-border: #f43f5e;
+  --theme-border-active: #06b6d4;
+  --theme-text-primary: #ffe4e6;
+  --theme-text-secondary: #fda4af;
+  --theme-glow: rgba(244, 63, 94, 0.15);
+}
+
+.theme-minimal {
+  --theme-bg: #f5f5f4;
+  --theme-panel: #ffffff;
+  --theme-panel-hover: #fafaf9;
+  --theme-border: #e7e5e4;
+  --theme-border-active: #1c1917;
+  --theme-text-primary: #1c1917;
+  --theme-text-secondary: #78716c;
+  --theme-glow: rgba(28, 25, 23, 0.02);
+}
+
+.theme-amethyst {
+  --theme-bg: #07030e;
+  --theme-panel: #0e061c;
+  --theme-panel-hover: #170b2e;
+  --theme-border: #3b0764;
+  --theme-border-active: #e879f9;
+  --theme-text-primary: #fae8ff;
+  --theme-text-secondary: #d8b4fe;
+  --theme-glow: rgba(217, 70, 239, 0.07);
 }
 
 /* Custom gorgeous dark slate scrollbar styles */

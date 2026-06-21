@@ -130,15 +130,15 @@ export function KnowledgeGraphView({ nodes, edges, onNodeClick }: KnowledgeGraph
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn">
       {/* Visual Canvas Area */}
-      <div className="lg:col-span-2 bg-[#0c1017]/85 border border-slate-800 rounded-2xl p-5 relative overflow-hidden shadow-2xl flex flex-col">
+      <div className="lg:col-span-2 bg-theme-panel border border-theme-border rounded-2xl p-5 relative overflow-hidden shadow-2xl flex flex-col h-[500px]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 z-10 relative">
           <div>
-            <h3 className="font-sans font-bold text-slate-100 flex items-center gap-2 text-sm uppercase tracking-wider">
+            <h3 className="font-sans font-bold text-theme-text-primary flex items-center gap-2 text-sm uppercase tracking-wider">
               <Brain className="w-5 h-5 text-emerald-400" />
               Dynamic Synaptic Brain Model
             </h3>
-            <p className="text-xs text-slate-400">
-              Interactive structural projection of Stellight memories. Drag to pan, scroll to zoom nodes.
+            <p className="text-xs text-theme-text-secondary">
+              Interactive structural projection of Starlight memories. Drag to pan, scroll to zoom nodes.
             </p>
           </div>
           
@@ -148,11 +148,11 @@ export function KnowledgeGraphView({ nodes, edges, onNodeClick }: KnowledgeGraph
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
                 viewMode === "projection"
                   ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                  : "text-slate-400 hover:text-slate-200"
+                  : "text-theme-text-secondary hover:text-theme-text-primary"
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
-              Sentelum Projection
+              Starlight Core Projection
             </button>
             <button
               onClick={() => setViewMode("network")}
@@ -370,7 +370,7 @@ export function KnowledgeGraphView({ nodes, edges, onNodeClick }: KnowledgeGraph
       </div>
 
       {/* Selected Node Details & Vectors */}
-      <div className="bg-[#0c1017]/85 border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col justify-between">
+      <div className="bg-theme-panel border border-theme-border rounded-2xl p-5 shadow-2xl flex flex-col justify-between h-[500px]">
         {selectedNode ? (
           <div className="flex-1 flex flex-col">
             <div className="border-b border-slate-800 pb-4 mb-4">
@@ -421,9 +421,9 @@ export function KnowledgeGraphView({ nodes, edges, onNodeClick }: KnowledgeGraph
 
             {/* 16-D Semantic Vector Bars */}
             <div className="flex-1 overflow-y-auto max-h-[160px] pr-1 styled-scrollbar">
-              <span className="text-[9px] font-mono font-bold text-slate-500 block mb-2.5 uppercase tracking-widest flex items-center gap-1.5">
+              <span className="text-[9px] font-mono font-bold text-theme-text-secondary block mb-2.5 uppercase tracking-widest flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                Sentelum 16-D Vector Representation
+                16-D Vector Coordination
               </span>
 
               <div className="space-y-2 text-[10px] font-mono">

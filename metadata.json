@@ -1,6 +1,6 @@
 {
-  "name": "Stellight Sentelum Engine",
-  "description": "An interactive next-generation autonomous learning AI system utilizing a multi-layer cognitive architecture including short/long-term/episodic memory, custom Sentelum vector engine, and dynamic knowledge graph.",
+  "name": "Starlight",
+  "description": "An interactive autonomous learning AI system utilizing a multi-layer memory architecture, dynamic knowledge graph, and intelligent multi-model failover rotation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
