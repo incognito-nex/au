@@ -588,6 +588,37 @@ You MUST return a strict JSON block exactly matching this schema, with no preamb
     }
   });
 
+  // API: Resolve ALL unresolved conflicts autonomously using AI
+  app.post("/api/engine/conflicts/resolve/all-ai", async (req, res) => {
+    try {
+      const unresolved = learning.conflicts.filter(c => !c.resolved);
+      if (unresolved.length === 0) {
+        return res.json({ success: true, count: 0, message: "No unresolved conflicts found." });
+      }
+
+      let count = 0;
+      for (const conflict of unresolved) {
+        try {
+          const resolved = await learning.resolveConflictAutonomous(conflict.existing.id, conflict.incoming.id, graph);
+          if (resolved) {
+            metrics.mistakesResolved += 1;
+            count++;
+          }
+        } catch (singleErr) {
+          console.error(`AI Resolution failed for conflict existing [${conflict.existing.id}] vs incoming [${conflict.incoming.id}]`, singleErr);
+        }
+      }
+
+      if (count > 0) {
+        persistChanges();
+      }
+
+      res.json({ success: true, count, message: `Successfully resolved ${count} conflicts with AI.` });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to bulk resolve conflicts." });
+    }
+  });
+
   // API: Wipes memory databases completely
   app.post("/api/engine/reset", (req, res) => {
     try {

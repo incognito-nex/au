@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { MemoryChunk, Fact } from "../engine/types.ts";
-import { Database, AlertTriangle, BookOpen, Clock, Activity, ShieldCheck } from "lucide-react";
+import { Database, AlertTriangle, BookOpen, Clock, Activity, ShieldCheck, Sparkles } from "lucide-react";
 
 interface ConflictItem {
   existing: Fact;
@@ -230,9 +230,26 @@ export function MemoryLists({ facts, shortTerm, episodic, semantic, conflicts, o
 
         {activeTab === "conflicts" && (
           <div className="space-y-4">
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">
-              Auditorium of Factual Contradictions (Conflicts Ledger)
-            </span>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+              <div>
+                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">
+                  Auditorium of Factual Contradictions (Conflicts Ledger)
+                </span>
+                <p className="text-[9px] text-slate-500 font-mono mt-0.5">Solve discrepancies manually or auto-solve them using AI teachers.</p>
+              </div>
+              {conflicts.filter(c => !c.resolved).length > 0 && (
+                <button
+                  onClick={async () => {
+                    await fetch("/api/engine/conflicts/resolve/all-ai", { method: "POST" });
+                    if (onFetchEngineState) onFetchEngineState();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-mono font-bold text-[10px] uppercase rounded-lg shadow-lg shadow-amber-950/25 transition-all active:scale-95 cursor-pointer border border-amber-400/20"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-pulse" />
+                  Resolve All via AI
+                </button>
+              )}
+            </div>
 
             {conflicts.length === 0 ? (
               <div className="text-center py-12 border border-slate-800 rounded-xl bg-slate-950/20 text-slate-500 italic text-xs font-mono">

@@ -8,6 +8,12 @@ import { GoogleGenAI } from "@google/genai";
 // Standard 16-D Semantic Dimensions
 import { VECTOR_DIMENSIONS } from "./types.js";
 
+function parseEnvKeys(envValue: string | undefined): string[] {
+  if (!envValue) return [];
+  // Split on potential commas (or even semi-colons or spaces) and trim spaces
+  return envValue.split(/[,,;]/).map(k => k.trim()).filter(k => k.length > 0);
+}
+
 export interface ProviderConfig {
   id: string; // gemini, groq, openrouter, huggingface, cerebras, cohere, mistral, ollama
   name: string;
@@ -27,7 +33,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: true,
     models: ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
     selectedModel: "gemini-2.5-flash",
-    keys: process.env.GEMINI_API_KEY ? [process.env.GEMINI_API_KEY] : [],
+    keys: parseEnvKeys(process.env.GEMINI_API_KEY),
     keyIndex: 0
   },
   {
@@ -36,7 +42,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
     selectedModel: "llama-3.3-70b-versatile",
-    keys: process.env.GROQ_API_KEY ? [process.env.GROQ_API_KEY] : [],
+    keys: parseEnvKeys(process.env.GROQ_API_KEY),
     keyIndex: 0
   },
   {
@@ -45,7 +51,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["meta-llama/llama-3.3-70b-instruct:free", "qwen/qwen-2.5-72b-instruct:free", "deepseek/deepseek-chat", "google/gemini-2.5-flash", "mistralai/mistral-7b-instruct:free"],
     selectedModel: "meta-llama/llama-3.3-70b-instruct:free",
-    keys: process.env.OPENROUTER_API_KEY ? [process.env.OPENROUTER_API_KEY] : [],
+    keys: parseEnvKeys(process.env.OPENROUTER_API_KEY),
     keyIndex: 0,
     apiUrl: "https://openrouter.ai/api/v1/chat/completions"
   },
@@ -55,7 +61,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["Qwen/Qwen2.5-72B-Instruct", "meta-llama/Llama-3.2-3B-Instruct", "mistralai/Mistral-7B-Instruct-v0.3"],
     selectedModel: "Qwen/Qwen2.5-72B-Instruct",
-    keys: process.env.HUGGINGFACE_API_KEY ? [process.env.HUGGINGFACE_API_KEY] : [],
+    keys: parseEnvKeys(process.env.HUGGINGFACE_API_KEY),
     keyIndex: 0
   },
   {
@@ -64,7 +70,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["llama3.1-8b", "llama3.3-70b", "llama3.1-70b"],
     selectedModel: "llama3.1-8b",
-    keys: process.env.CEREBRAS_API_KEY ? [process.env.CEREBRAS_API_KEY] : [],
+    keys: parseEnvKeys(process.env.CEREBRAS_API_KEY),
     keyIndex: 0,
     apiUrl: "https://api.cerebras.ai/v1/chat/completions"
   },
@@ -74,7 +80,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["command-r-plus-08-2024", "command-r-plus", "command-r-08-2024"],
     selectedModel: "command-r-plus-08-2024",
-    keys: process.env.COHERE_API_KEY ? [process.env.COHERE_API_KEY] : [],
+    keys: parseEnvKeys(process.env.COHERE_API_KEY),
     keyIndex: 0
   },
   {
@@ -83,7 +89,7 @@ export const PROVIDERS_REGISTRY: ProviderConfig[] = [
     enabled: false,
     models: ["open-mistral-7b", "mistral-small-latest", "mistral-large-latest"],
     selectedModel: "open-mistral-7b",
-    keys: process.env.MISTRAL_API_KEY ? [process.env.MISTRAL_API_KEY] : [],
+    keys: parseEnvKeys(process.env.MISTRAL_API_KEY),
     keyIndex: 0,
     apiUrl: "https://api.mistral.ai/v1/chat/completions"
   },

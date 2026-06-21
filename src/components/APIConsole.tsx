@@ -44,6 +44,41 @@ export function APIConsole() {
   const [keysInput, setKeysInput] = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Cognitive Settings States
+  const [temperature, setTemperature] = useState<number>(() => {
+    const saved = localStorage.getItem("stellight_temp");
+    return saved ? parseFloat(saved) : 0.7;
+  });
+  const [deductiveDepth, setDeductiveDepth] = useState<number>(() => {
+    const saved = localStorage.getItem("stellight_depth");
+    return saved ? parseInt(saved) : 5;
+  });
+  const [attentionWeight, setAttentionWeight] = useState<number>(() => {
+    const saved = localStorage.getItem("stellight_attention");
+    return saved ? parseInt(saved) : 85;
+  });
+  const [autoRotate, setAutoRotate] = useState<boolean>(() => {
+    const saved = localStorage.getItem("stellight_auto_rotate");
+    return saved !== "false";
+  });
+
+  const handleSetTemperature = (val: number) => {
+    setTemperature(val);
+    localStorage.setItem("stellight_temp", val.toString());
+  };
+  const handleSetDeductiveDepth = (val: number) => {
+    setDeductiveDepth(val);
+    localStorage.setItem("stellight_depth", val.toString());
+  };
+  const handleSetAttentionWeight = (val: number) => {
+    setAttentionWeight(val);
+    localStorage.setItem("stellight_attention", val.toString());
+  };
+  const handleSetAutoRotate = (val: boolean) => {
+    val ? setAutoRotate(true) : setAutoRotate(false);
+    localStorage.setItem("stellight_auto_rotate", val.toString());
+  };
+
   // Auto-train states
   const [trainTopic, setTrainTopic] = useState("");
   const [isTraining, setIsTraining] = useState(false);
@@ -632,38 +667,126 @@ export function APIConsole() {
           )}
         </div>
 
-        {/* Informational Guidance Sidebar */}
-        <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-4">
-          <div className="border-b border-slate-800/80 pb-3 flex items-center gap-2">
-            <Info className="w-4 h-4 text-emerald-400" />
-            <h4 className="font-sans font-bold text-sm text-slate-200">
-              Architecture Overview
-            </h4>
-          </div>
-
-          <div className="space-y-3.5 text-xs text-slate-400 leading-normal font-sans">
-            <p>
-              Stellight supports **Multi-threaded Parallel Raced** prompts. When multiple models are enabled, it triggers requests at the same time and races them inside Node.js.
-            </p>
-
-            <div className="bg-[#12161f] p-3 rounded-xl border border-slate-800/60 font-mono space-y-2 text-[11px]">
-              <span className="text-emerald-400 font-bold block flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" />
-                CONCURRENCY PROTECTION
-              </span>
-              <p className="text-slate-500 text-[10px] leading-tight">
-                If any single model hits a rate-limit, exhaustion, or times out, Stellight automatically ignores the failure and returns the fastest complete answer from another channel.
-              </p>
+        {/* Informational Guidance Sidebar + Hyperparameter tuning dashboard */}
+        <div className="space-y-6">
+          <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800/80 pb-3 flex items-center gap-2">
+              <Settings className="w-4 h-4 text-emerald-400" />
+              <h4 className="font-sans font-bold text-sm text-slate-200">
+                Cognitive Tuning Panel
+              </h4>
             </div>
 
-            <div className="bg-[#12161f] p-3 rounded-xl border border-slate-800/60 font-mono space-y-2 text-[11px]">
-              <span className="text-sky-400 font-bold block flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5" />
-                KEY ROTATION POOLS
-              </span>
-              <p className="text-slate-500 text-[10px] leading-tight">
-                Add multiple API keys separated by commas. Stellight will cycle to the next key on any failure, ensuring near-infinite tier uptime!
+            <div className="space-y-4 text-xs font-mono">
+              {/* Temperature setting */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">CREATIVE TEMPERATURE</span>
+                  <span className="text-emerald-400 font-bold">{temperature.toFixed(1)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.1"
+                  value={temperature}
+                  onChange={(e) => handleSetTemperature(parseFloat(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer h-1.5 bg-slate-900 rounded-lg appearance-none"
+                />
+                <span className="text-[8px] text-slate-550 block italic">
+                  {temperature <= 0.3 ? "Deterministic, factual responses" : temperature <= 0.7 ? "Balanced fact-finding reasoning" : "Creative, imaginative associations"}
+                </span>
+              </div>
+
+              {/* Deductive Depth relation setting */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">DEDUCTION STEP DEPTH</span>
+                  <span className="text-sky-400 font-bold">{deductiveDepth} Hops</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max="10"
+                  step="1"
+                  value={deductiveDepth}
+                  onChange={(e) => handleSetDeductiveDepth(parseInt(e.target.value))}
+                  className="w-full accent-sky-500 cursor-pointer h-1.5 bg-slate-900 rounded-lg appearance-none"
+                />
+                <span className="text-[8px] text-slate-550 block italic">
+                  Max graph path iteration limit during query traversal.
+                </span>
+              </div>
+
+              {/* Attention Focus weight percentage */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">ATTENTION RETENTION WEIGHT</span>
+                  <span className="text-indigo-400 font-bold">{attentionWeight}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="20"
+                  max="100"
+                  step="5"
+                  value={attentionWeight}
+                  onChange={(e) => handleSetAttentionWeight(parseInt(e.target.value))}
+                  className="w-full accent-indigo-500 cursor-pointer h-1.5 bg-slate-900 rounded-lg appearance-none"
+                />
+                <span className="text-[8px] text-slate-550 block italic">
+                  Stochastic weights distribution across nearest node vectors.
+                </span>
+              </div>
+
+              {/* AI Key Auto-Rotate pool lock */}
+              <div className="flex items-center justify-between bg-slate-950/50 p-2 rounded-xl border border-slate-900">
+                <div className="flex flex-col">
+                  <span className="text-slate-400 font-bold text-[9px] uppercase tracking-wider">FORCED ROTATION</span>
+                  <span className="text-[8px] text-slate-500 font-sans">Cycle keys on failures</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={autoRotate}
+                  onChange={(e) => handleSetAutoRotate(e.target.checked)}
+                  className="w-4 h-4 text-emerald-500 bg-slate-950 border-slate-800 rounded focus:ring-emerald-500/30 cursor-pointer"
+                />
+              </div>
+
+            </div>
+          </div>
+
+          <div className="bg-[#0c1017]/85 border border-slate-800/80 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800/80 pb-3 flex items-center gap-2">
+              <Info className="w-4 h-4 text-emerald-400" />
+              <h4 className="font-sans font-bold text-sm text-slate-200">
+                Architecture overview
+              </h4>
+            </div>
+
+            <div className="space-y-3.5 text-xs text-slate-400 leading-normal font-sans">
+              <p>
+                Stellight supports **Multi-threaded Parallel Raced** prompts. When multiple models are enabled, it triggers requests at the same time and races them inside Node.js.
               </p>
+
+              <div className="bg-[#12161f] p-3 rounded-xl border border-slate-800/60 font-mono space-y-2 text-[11px]">
+                <span className="text-emerald-400 font-bold block flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  CONCURRENCY PROTECTION
+                </span>
+                <p className="text-slate-500 text-[10px] leading-tight">
+                  If any single model hits a rate-limit, exhaustion, or times out, Stellight automatically ignores the failure and returns the fastest complete answer from another channel.
+                </p>
+              </div>
+
+              <div className="bg-[#12161f] p-3 rounded-xl border border-slate-800/60 font-mono space-y-2 text-[11px]">
+                <span className="text-sky-400 font-bold block flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5" />
+                  KEY ROTATION POOLS
+                </span>
+                <p className="text-slate-500 text-[10px] leading-tight">
+                  Add multiple API keys separated by commas. Stellight will cycle to the next key on any failure, ensuring near-infinite tier uptime!
+                </p>
+              </div>
             </div>
           </div>
         </div>
